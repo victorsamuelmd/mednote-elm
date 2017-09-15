@@ -2,8 +2,11 @@ module App exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onInput, onClick)
+import Http
 import Time
+import Json.Encode as Encode
+import Json.Decode as Decode
 
 
 ---- MODEL ----
@@ -28,12 +31,12 @@ type UnidadMedidaEdad
     | NoAplicaEdad
 
 
-type TipoDocumento
-    = TargetaIdentidad
-    | RegistroCivil
-    | CedulaCiudadania
-    | CedulaExtrangeria
-    | Pasaporte
+type NumeroDocumento
+    = TargetaIdentidad Int
+    | RegistroCivil Int
+    | CedulaCiudadania Int
+    | CedulaExtrangeria Int
+    | Pasaporte Int
     | MenorSinIdentifiacion
     | AdultoSinIdentificacion
 
@@ -45,24 +48,20 @@ type AreaOcurrencia
 
 
 type alias Model =
-    { value : Int
-    , dilatation :
-        ( Int, Int )
-    , patients : List Patient
+    { patients : List Patient
 
     -- Informacion general
-    , nombre_evento : String
-    , codigo_evento : Int
-    , fecha_notificacion :
+    , nombreEvento : String
+    , codigoEvento : Int
+    , fechaNotificacion :
         Time.Time
 
     -- Identificacion del paciente
-    , tipo_documento : TipoDocumento
-    , numero_identificacion : Int
-    , nombres_paciente : String
-    , apellitos_paciente : String
+    , numeroDocumento : NumeroDocumento
+    , nombresPaciente : String
+    , apellidosPaciente : String
     , telefono : String
-    , fecha_nacimiento_paciente : Time.Time
+    , fechaNacimientoPaciente : Time.Time
     , edadPaciente : Int
     , unidadMedidaEdad : UnidadMedidaEdad
     , sexoPaciente : Genero
@@ -74,17 +73,14 @@ type alias Model =
 
 
 model =
-    { value = 100
-    , dilatation = ( 0, 0 )
-    , nombre_evento = ""
-    , codigo_evento = 123
-    , fecha_notificacion = 1234
-    , tipo_documento = AdultoSinIdentificacion
-    , numero_identificacion = 0
-    , nombres_paciente = ""
-    , apellitos_paciente = ""
+    { nombreEvento = ""
+    , codigoEvento = 123
+    , fechaNotificacion = 1234
+    , numeroDocumento = CedulaCiudadania 1087998004
+    , nombresPaciente = ""
+    , apellidosPaciente = ""
     , telefono = ""
-    , fecha_nacimiento_paciente = 0
+    , fechaNacimientoPaciente = 0
     , edadPaciente = 0
     , unidadMedidaEdad = NoAplicaEdad
     , sexoPaciente = Indeterminado
@@ -105,29 +101,47 @@ init path =
 
 
 
+encondeForm : Model -> Encode.Value
+encondeForm model =
+    Encode.object
+        [ ( "first_name", Encode.string model.nombresPaciente )
+        , ( "last_name", Encode.string model.apellidosPaciente )
+        , ( "age", Encode.int model.edadPaciente )
+        ]
+
 ---- UPDATE ----
 
 
 type Msg
-    = IncreaseBox Int
-    | DefinirNombres String
+    = DefinirNombres String
     | DefinirApellidos String
     | DefinirEdad String
     | DefinidNombreEvento String
+    | SendDataToServer (Result Http.Error String)
+    | Click
     | NoOp
+
+
+sendData : Model -> Cmd Msg
+sendData model =
+    Http.send SendDataToServer <|
+        Http.post "http://localhost:3535" (encondeForm model |> Http.jsonBody) Decode.string
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update action model =
     case action of
-        IncreaseBox increases ->
-            ( { model | value = model.value + 10 }, Cmd.none )
-
         DefinirNombres nuevoNombre ->
-            ( { model | nombres_paciente = nuevoNombre }, Cmd.none )
+            ( { model | nombresPaciente = nuevoNombre }, Cmd.none )
 
         DefinirApellidos nuevoApellido ->
-            ( { model | apellitos_paciente = nuevoApellido }, Cmd.none )
+            ( { model | apellidosPaciente = nuevoApellido }, Cmd.none )
+
+        DefinirEdad nuevaEdad ->
+            ( { model | edadPaciente = Result.withDefault 0 (String.toInt nuevaEdad) }, Cmd.none )
+
+        Click ->
+            ( model, sendData model )
 
         _ ->
             ( model, Cmd.none )
@@ -135,6 +149,22 @@ update action model =
 
 
 ---- VIEW ----
+
+
+preguntarDocumento : NumeroDocumento -> Html Msg
+preguntarDocumento num =
+    case num of
+        MenorSinIdentifiacion ->
+            text "MenorSinIdentifiacion"
+
+        AdultoSinIdentificacion ->
+            text "AdultoSinIdentificacion"
+
+        CedulaCiudadania numero ->
+            toString numero |> text
+
+        _ ->
+            text ""
 
 
 view : Model -> Html Msg
@@ -154,7 +184,7 @@ navbar =
             [ a [ href "#", class "navbar-brand" ] [ text "MedNote" ]
             , div [ class "collapse navbar-collapse" ]
                 [ ul [ class "nav navbar-nav" ]
-                    [ li [ class "active" ] [ a [ href "#" ] [ text "Hola" ] ]
+                    [ li [ class "active", onClick Click ] [ a [ href "#" ] [ text "Hola" ] ]
                     ]
                 ]
             ]
@@ -193,14 +223,16 @@ collection patients =
             ]
 
 
+checkBox : String -> Html Msg
+checkBox label_ =
+    div [ class "checkbox" ]
+        [ label [] [ input [ type_ "checkbox" ] [], text label_ ]
+        ]
+
+
 basicDataform : Model -> Html Msg
 basicDataform model =
     let
-        checkBox label_ =
-            div [ class "checkbox" ]
-                [ label [] [ input [ type_ "checkbox" ] [], text label_ ]
-                ]
-
         casilla etiqueta accion =
             div [ class "form-group" ]
                 [ label [] [ text etiqueta ]
@@ -208,17 +240,17 @@ basicDataform model =
                 ]
     in
         Html.form []
-            [ div [ class "columns" ] [ h1 [ Html.Attributes.class "title" ] [ Html.text "Notificación Eventos en Salud Pública" ] ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Nombres" DefinirNombres ]
-                , div [ class "column" ] [ casilla "Apellidos" DefinirApellidos ]
+            [ div [ class "columns" ]
+                [ casilla "Nombres" DefinirNombres
+                , casilla "Apellidos" DefinirApellidos
+                , preguntarDocumento model.numeroDocumento
                 ]
             , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Teléfono" DefinirEdad ]
-                , div [ class "column" ] [ casilla "Fecha Nacimiento" DefinirEdad ]
-                , div [ class "column" ] [ casilla "Edad" DefinirEdad ]
-                , div [ class "column" ] [ casilla "Unidad Medida de Edad" DefinirEdad ]
-                , div [ class "column" ] [ casilla "Sexo" DefinirEdad ]
+                [ casilla "Teléfono" DefinirEdad
+                , casilla "Fecha Nacimiento" DefinirEdad
+                , casilla "Edad" DefinirEdad
+                , casilla "Unidad Medida de Edad" DefinirEdad
+                , casilla "Sexo" DefinirEdad
                 ]
             , div [ class "columns" ]
                 [ div [ class "column" ] [ casilla "Pais" DefinirEdad ]
@@ -252,22 +284,7 @@ basicDataform model =
                         ]
                     ]
                 ]
-            , div [ class "columns" ]
-                [ checkBox "Discapacitados"
-                , checkBox "Migrantes"
-                , checkBox "Gestantes"
-                , checkBox "Infantil a cargo del ICBF"
-                , checkBox "Desmovilizados"
-                , checkBox "Víctimas de violencia armada"
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Desplazados" ] ] ] ]
-                , div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Carcelarios" ] ] ] ]
-                , div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Indigentes" ] ] ] ]
-                , div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Madres Comunitarias" ] ] ] ]
-                , div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Centros Psiquiátricos" ] ] ] ]
-                , div [ class "column" ] [ div [ class "field" ] [ p [ class "control" ] [ label [ class "checkbox" ] [ input [ type_ "checkbox" ] [], text "Otros grupos poblacionales" ] ] ] ]
-                ]
+            , div [ class "columns" ] gruposPoblacionales
             , div [ class "columns" ]
                 [ div [ class "column" ] [ casilla "Departamento residencia Paciente" DefinirEdad ]
                 , div [ class "column" ] [ casilla "Municipio residencia Paciente" DefinirEdad ]
@@ -287,8 +304,25 @@ basicDataform model =
                 , div [ class "column" ] [ casilla "Fecha de Defunción" DefinirEdad ]
                 , div [ class "column" ] [ casilla "Número de certificado de defunción" DefinirEdad ]
                 ]
-            , div [ class "columns" ] [ text model.nombres_paciente ]
+            , div [ class "columns" ] [ text model.nombresPaciente ]
             ]
+
+
+gruposPoblacionales =
+    List.map checkBox
+        [ "Discapacitados"
+        , "Migrantes"
+        , "Gestantes"
+        , "Infantil a cargo del ICBF"
+        , "Desmovilizados"
+        , "Víctimas de violencia armada"
+        , "Desplazados"
+        , "Carcelarios"
+        , "Indigentes"
+        , "Madres Comunitarias"
+        , "Centros Psiquiátricos"
+        , "Otros Grupos Poblacionales"
+        ]
 
 
 
