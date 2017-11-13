@@ -1,4 +1,6 @@
 import './main.css'
+import './bootstrap.css'
+
 const logoPath = require('./logo.svg')
 const Elm = require('./App.elm')
 

@@ -539,20 +539,17 @@ view : Model -> Html Msg
 view model =
     div []
         [ navbar
-        , div [ class "col-md-4" ] [ basicDataform model ]
+        , div [ class "container" ] [ basicDataform model ]
         ]
 
 
 navbar : Html Msg
 navbar =
-    nav [ class "navbar navbar-default" ]
-        [ div [ class "container-fluid" ]
-            [ a [ href "#", class "navbar-brand" ] [ text "MedNote" ]
-            , div [ class "collapse navbar-collapse" ]
-                [ ul [ class "nav navbar-nav" ]
-                    [ li [ class "active", onClick Click ] [ a [ href "#" ] [ text "Hola" ] ]
-                    ]
-                ]
+    nav [ class "navbar navbar-dark bg-dark navbar-expand-sm" ]
+        [ a [ href "#", class "navbar-brand" ] [ text "MedNote" ]
+        , div [ class "navbar-nav" ]
+            [ a [ class "nav-item nav-link", href "#", onClick Click ] [ text "Hola" ]
+            , a [ class "nav-item nav-link", href "#", onClick Click ] [ text "Otro" ]
             ]
         ]
 
@@ -599,15 +596,22 @@ casilla etiqueta accion =
 
 checkBox : ( String, Msg ) -> Html Msg
 checkBox ( label_, msg ) =
-    div [ class "checkbox" ]
-        [ label [] [ input [ type_ "checkbox", onClick msg ] [], text label_ ]
+    div [ class "form-check" ]
+        [ label [ class "form-check-label" ]
+            [ input [ type_ "checkbox", onClick msg, class "form-check-input" ] []
+            , text label_
+            ]
         ]
 
 
 radioButton : String -> ( Msg, String ) -> Html Msg
 radioButton name_ ( msg, label_ ) =
-    label [ class "radio" ]
-        [ input [ onClick msg, type_ "radio", name name_ ] [], text label_ ]
+    div [ class "form-check" ]
+        [ label [ class "form-check-label" ]
+            [ input [ onClick msg, type_ "radio", name name_, class "form-check-input" ] []
+            , text label_
+            ]
+        ]
 
 
 preguntarGeneroPaciente : List (Html Msg)
@@ -758,7 +762,12 @@ basicDataform model =
                     ]
                 ]
             ]
-        , div [ class "columns" ] preguntarGruposPoblacionales
+        , fieldset [ class "form-group" ]
+            [ div [] <|
+                ((legend [] [ text "Grupo poblacional" ])
+                    :: preguntarGruposPoblacionales
+                )
+            ]
         , div [ class "columns" ]
             [ div [ class "column" ]
                 [ casilla "Departamento residencia Paciente"
