@@ -146,7 +146,7 @@ model =
     { nombreEvento = ""
     , codigoEvento = 123
     , fechaNotificacion = Date.fromTime 0
-    , numeroIdentificacion = 1087998004
+    , numeroIdentificacion = 0
     , tipoIdentificacion = CedulaCiudadania
     , nombresPaciente = ""
     , apellidosPaciente = ""
@@ -207,16 +207,21 @@ encondeForm model =
         [ ( "nombres_paciente", Encode.string model.nombresPaciente )
         , ( "apellidos_paciente", Encode.string model.apellidosPaciente )
         , ( "tipo_identificacion", Encode.string <| toString model.tipoIdentificacion )
-        , ( "numero_identificacion", Encode.string <| toString model.tipoIdentificacion )
+        , ( "numero_identificacion", Encode.int model.numeroIdentificacion )
         , ( "telefono", Encode.string model.telefono )
         , ( "sexo_paciente", Encode.string <| toString model.sexoPaciente )
         , ( "pais_ocurrencia", Encode.string model.paisOcurrenciaCaso )
         , ( "municipio_ocurrencia", Encode.string model.municipitoOcurrenciaCaso )
-        , ( "fecha_nacimiento_paciente", Encode.string <| toString model.fechaNacimientoPaciente )
+        , ( "fecha_nacimiento_paciente"
+          , Date.toTime model.fechaNacimientoPaciente
+                |> Encode.float
+          )
         , ( "departamento_ocurrencia_caso", Encode.string model.departamentoOcurrenciaCaso )
         , ( "localidad_ocurrencia_caso", Encode.string model.localidadOcurrenciaCaso )
         , ( "barrio_ocurrencia_caso", Encode.string model.barrioOcurrenciaCaso )
-        , ( "cabecera_centro_rural_ocurrencia_caso", Encode.string model.cabeceraCentroRuralOcurrenciaCaso )
+        , ( "cabecera_centro_rural_ocurrencia_caso"
+          , Encode.string model.cabeceraCentroRuralOcurrenciaCaso
+          )
         , ( "vereda_zona_ocurrencia_caso", Encode.string model.veredaZonaOcurrenciaCaso )
         , ( "area_ocurrencia_caso", Encode.string <| toString model.areaOcurrenciaCaso )
         , ( "ocupacion_paciente", Encode.string model.ocupacionPaciente )
@@ -240,15 +245,15 @@ encondeForm model =
         , ( "direccion_residencia", Encode.string model.direccionResidencia )
 
         -- Fechas relevancia
-        , ( "fecha_inicio_sintomas", Encode.string <| toString model.fechaInicioSintomas )
-        , ( "fecha_consulta", Encode.string <| toString model.fechaConsulta )
+        , ( "fecha_inicio_sintomas", Encode.float <| Date.toTime model.fechaInicioSintomas )
+        , ( "fecha_consulta", Encode.float <| Date.toTime model.fechaConsulta )
         , ( "clasificacion_inicial_caso", Encode.string <| toString model.clasificacionInicialCaso )
         , ( "hospitalizado", Encode.bool model.hospitalizado )
-        , ( "fecha_hospitalizacion", Encode.string <| toString model.fechaHospitalizacion )
+        , ( "fecha_hospitalizacion", Encode.float <| Date.toTime model.fechaHospitalizacion )
         , ( "condicion_final", Encode.string <| toString model.condicionFinal )
-        , ( "fecha_defuncion", Encode.string <| toString model.fechaDefuncion )
+        , ( "fecha_defuncion", Encode.float <| Date.toTime model.fechaDefuncion )
         , ( "numero_certificado_defuncion"
-          , Encode.string <| toString model.numeroCertificadoDefuncion
+          , Encode.int model.numeroCertificadoDefuncion
           )
         , ( "causa_basica_muerte", Encode.string <| toString model.causaBasicaMuerte )
         ]
@@ -296,10 +301,10 @@ type Msg
     | DefinirDireccionResidencia String
     | DefinirFechaConsulta String
     | DefinirFechaInicioSintomas String
-    | DefinirClasificacionInicialCaso ClasificacionCaso
-    | DefinirHospitalizado String
+    | DefinirClasificacionInicial ClasificacionCaso
+    | DefinirHospitalizado
     | DefinirFechaHospitalizacion String
-    | DefinirCondicionFinal String
+    | DefinirCondicionFinal CondicionFinal
     | DefinirFechaDefuncion String
     | DefinirNumeroCertificadoDefuncion String
     | DefinirCausaBasicaMuerte String
@@ -310,8 +315,12 @@ type Msg
 
 sendData : Model -> Cmd Msg
 sendData model =
-    Http.send SendDataToServer <|
-        Http.post "http://localhost:3000" (encondeForm model |> Http.jsonBody) Decode.string
+    let
+        server =
+            "http://localhost:3030"
+    in
+        Http.send SendDataToServer <|
+            Http.post server (encondeForm model |> Http.jsonBody) Decode.string
 
 
 convertirTipoIdentificacion : String -> TipoIdentificacion
@@ -479,11 +488,11 @@ update action model =
             , Cmd.none
             )
 
-        DefinirClasificacionInicialCaso nuevo ->
+        DefinirClasificacionInicial nuevo ->
             ( { model | clasificacionInicialCaso = nuevo }, Cmd.none )
 
-        DefinirHospitalizado nuevo ->
-            ( { model | hospitalizado = False }, Cmd.none )
+        DefinirHospitalizado ->
+            ( { model | hospitalizado = not model.hospitalizado }, Cmd.none )
 
         DefinirFechaHospitalizacion nuevo ->
             ( { model
@@ -495,7 +504,7 @@ update action model =
             )
 
         DefinirCondicionFinal nuevo ->
-            ( { model | condicionFinal = Vivo }, Cmd.none )
+            ( { model | condicionFinal = nuevo }, Cmd.none )
 
         DefinirFechaDefuncion nuevo ->
             ( { model
@@ -580,6 +589,14 @@ collection patients =
             ]
 
 
+casilla : String -> (String -> Msg) -> Html Msg
+casilla etiqueta accion =
+    div [ class "form-group" ]
+        [ label [] [ text etiqueta ]
+        , input [ class "form-control", type_ "text", onInput accion ] []
+        ]
+
+
 checkBox : ( String, Msg ) -> Html Msg
 checkBox ( label_, msg ) =
     div [ class "checkbox" ]
@@ -587,28 +604,28 @@ checkBox ( label_, msg ) =
         ]
 
 
-radioButton : ( Msg, String, String ) -> Html Msg
-radioButton ( msg, label_, name_ ) =
+radioButton : String -> ( Msg, String ) -> Html Msg
+radioButton name_ ( msg, label_ ) =
     label [ class "radio" ]
         [ input [ onClick msg, type_ "radio", name name_ ] [], text label_ ]
 
 
 preguntarGeneroPaciente : List (Html Msg)
 preguntarGeneroPaciente =
-    [ ( DefinirSexoPaciente Masculino, "Masculino", "sexo" )
-    , ( DefinirSexoPaciente Femenino, "Femenino", "sexo" )
-    , ( DefinirSexoPaciente Indeterminado, "Indeterminado", "sexo" )
+    [ ( DefinirSexoPaciente Masculino, "Masculino" )
+    , ( DefinirSexoPaciente Femenino, "Femenino" )
+    , ( DefinirSexoPaciente Indeterminado, "Indeterminado" )
     ]
-        |> List.map radioButton
+        |> List.map (radioButton "sexo")
 
 
 preguntarAreaOcurrencia : Html Msg
 preguntarAreaOcurrencia =
-    [ ( DefinirAreaOcurrenciaCaso CabeceraMunicipal, "Cabecera Municipal", "area" )
-    , ( DefinirAreaOcurrenciaCaso RuralDisperso, "Rural Disperso", "area" )
-    , ( DefinirAreaOcurrenciaCaso CentroPoblado, "Centro Poblado", "area" )
+    [ ( DefinirAreaOcurrenciaCaso CabeceraMunicipal, "Cabecera Municipal" )
+    , ( DefinirAreaOcurrenciaCaso RuralDisperso, "Rural Disperso" )
+    , ( DefinirAreaOcurrenciaCaso CentroPoblado, "Centro Poblado" )
     ]
-        |> List.map radioButton
+        |> List.map (radioButton "area")
         |> div []
 
 
@@ -627,24 +644,24 @@ preguntarTipoIdentificacion =
 
 preguntarRegimenSalud : List (Html Msg)
 preguntarRegimenSalud =
-    [ ( DefinirTipoRegimenSalud Subsidiado, "Subsidiado", "regimen" )
-    , ( DefinirTipoRegimenSalud Contributivo, "Contributivo", "regimen" )
-    , ( DefinirTipoRegimenSalud Vinculado, "Vinculado", "regimen" )
-    , ( DefinirTipoRegimenSalud NoAsegurado, "No Asegurado", "regimen" )
+    [ ( DefinirTipoRegimenSalud Subsidiado, "Subsidiado" )
+    , ( DefinirTipoRegimenSalud Contributivo, "Contributivo" )
+    , ( DefinirTipoRegimenSalud Vinculado, "Vinculado" )
+    , ( DefinirTipoRegimenSalud NoAsegurado, "No Asegurado" )
     ]
-        |> List.map radioButton
+        |> List.map (radioButton "regimen")
 
 
 preguntarPertenenciaEtnica : List (Html Msg)
 preguntarPertenenciaEtnica =
-    [ ( DefinirPertenenciaEtnica Indigena, "Indígena", "etnica" )
-    , ( DefinirPertenenciaEtnica RomGitano, "Rom, Gitano", "etnica" )
-    , ( DefinirPertenenciaEtnica Raizal, "Raizal", "etnica" )
-    , ( DefinirPertenenciaEtnica Palenquero, "Palenquero", "etnica" )
-    , ( DefinirPertenenciaEtnica NegroMulatoAfrocolombiano, "Negro, Mulato, Afrocolombiano", "etnica" )
-    , ( DefinirPertenenciaEtnica Otro, "Otro", "etnica" )
+    [ ( DefinirPertenenciaEtnica Indigena, "Indígena" )
+    , ( DefinirPertenenciaEtnica RomGitano, "Rom, Gitano" )
+    , ( DefinirPertenenciaEtnica Raizal, "Raizal" )
+    , ( DefinirPertenenciaEtnica Palenquero, "Palenquero" )
+    , ( DefinirPertenenciaEtnica NegroMulatoAfrocolombiano, "Negro, Mulato, Afrocolombiano" )
+    , ( DefinirPertenenciaEtnica Otro, "Otro" )
     ]
-        |> List.map radioButton
+        |> List.map (radioButton "etnica")
 
 
 preguntarGruposPoblacionales : List (Html Msg)
@@ -667,82 +684,122 @@ preguntarGruposPoblacionales =
 
 preguntarClasificacionInicial : List (Html Msg)
 preguntarClasificacionInicial =
-    [ ( DefinirClasificacionInicialCaso CasoSospechoso, "Sospechoso", "clasificacion_caso" )
-    , ( DefinirClasificacionInicialCaso CasoProbable, "Probable", "clasificacion_caso" )
-    , ( DefinirClasificacionInicialCaso ConfirmacionClinica, "Confirmado por Clinica", "clasificacion_caso" )
-    , ( DefinirClasificacionInicialCaso ConfirmacionEpidemiologia, "Confirmado por Nexo Epidemiologico", "clasificacion_caso" )
-    , ( DefinirClasificacionInicialCaso ConfrimacionLaboratorio, "Confirmado por Laboratorio", "clasificacion_caso" )
+    [ ( DefinirClasificacionInicial CasoSospechoso, "Sospechoso" )
+    , ( DefinirClasificacionInicial CasoProbable, "Probable" )
+    , ( DefinirClasificacionInicial ConfirmacionClinica
+      , "Confirmado por Clinica"
+      )
+    , ( DefinirClasificacionInicial ConfirmacionEpidemiologia
+      , "Confirmado por Nexo Epidemiologico"
+      )
+    , ( DefinirClasificacionInicial ConfrimacionLaboratorio
+      , "Confirmado por Laboratorio"
+      )
     ]
-        |> List.map radioButton
+        |> List.map (radioButton "clasificacion_caso")
+
+
+preguntarCondicionFinal : List (Html Msg)
+preguntarCondicionFinal =
+    [ ( DefinirCondicionFinal Vivo, "Vivo" )
+    , ( DefinirCondicionFinal Muerto, "Muerto" )
+    , ( DefinirCondicionFinal NoSabeCondicionFinal, "Desconocido" )
+    ]
+        |> List.map (radioButton "condicion_final")
 
 
 basicDataform : Model -> Html Msg
 basicDataform model =
-    let
-        casilla etiqueta accion =
-            div [ class "form-group" ]
-                [ label [] [ text etiqueta ]
-                , input [ class "form-control", type_ "text", onInput accion ] []
+    Html.form []
+        [ div [ class "columns" ]
+            [ casilla "Nombres" DefinirNombresPaciente
+            , casilla "Apellidos" DefinirApellidosPaciente
+            , casilla "Numero de Indentificacion" DefinirNumeroIdentificacion
+            , preguntarTipoIdentificacion
+            ]
+        , div [ class "columns" ]
+            [ casilla "Teléfono" DefinirTelefono
+            , casilla "Fecha Nacimiento" DefinirFechaNacimientoPaciente
+            , div [] ((text "Genero") :: preguntarGeneroPaciente)
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ] [ casilla "Pais" DefinirPaisOcurrenciaCaso ]
+            , div [ class "column" ]
+                [ casilla "Departamento"
+                    DefinirDepartamentoOcurrenciaCaso
                 ]
-    in
-        Html.form []
-            [ div [ class "columns" ]
-                [ casilla "Nombres" DefinirNombresPaciente
-                , casilla "Apellidos" DefinirApellidosPaciente
-                , casilla "Numero de Indentificacion" DefinirNumeroIdentificacion
-                , preguntarTipoIdentificacion
+            , div [ class "column" ] [ casilla "Municipio" DefinirMunicipitoOcurrenciaCaso ]
+            , div [ class "column" ] [ preguntarAreaOcurrencia ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ] [ casilla "Localidad" DefinirLocalidadOcurrenciaCaso ]
+            , div [ class "column" ] [ casilla "Barrio" DefinirBarrioOcurrenciaCaso ]
+            , div [ class "column" ]
+                [ casilla "Cabecera Municipal/Centro Poblado/Rural Disperso"
+                    DefinirCabeceraCentroRuralOcurrenciaCaso
                 ]
-            , div [ class "columns" ]
-                [ casilla "Teléfono" DefinirTelefono
-                , casilla "Fecha Nacimiento" DefinirFechaNacimientoPaciente
-                , div [] ((text "Genero") :: preguntarGeneroPaciente)
+            , div [ class "column" ] [ casilla "Vereda/Zona" DefinirVeredaZonaOcurrenciaCaso ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ casilla "Ocupación del Paciente"
+                    DefinirOcupacionPaciente
                 ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Pais" DefinirPaisOcurrenciaCaso ]
-                , div [ class "column" ] [ casilla "Departamento" DefinirDepartamentoOcurrenciaCaso ]
-                , div [ class "column" ] [ casilla "Municipio" DefinirMunicipitoOcurrenciaCaso ]
-                , div [ class "column" ] [ preguntarAreaOcurrencia ]
+            , div [ class "column" ] <| (text "Regimen del Paciente") :: preguntarRegimenSalud
+            , div [ class "column" ]
+                [ casilla "Nombre de la Administradora"
+                    DefinirNombreAdministradoraSalud
                 ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Localidad" DefinirLocalidadOcurrenciaCaso ]
-                , div [ class "column" ] [ casilla "Barrio" DefinirBarrioOcurrenciaCaso ]
-                , div [ class "column" ] [ casilla "Cabecera Municipal/Centro Poblado/Rural Disperso" DefinirCabeceraCentroRuralOcurrenciaCaso ]
-                , div [ class "column" ] [ casilla "Vereda/Zona" DefinirVeredaZonaOcurrenciaCaso ]
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Ocupación del Paciente" DefinirOcupacionPaciente ]
-                , div [ class "column" ] <| (text "Regimen del Paciente") :: preguntarRegimenSalud
-                , div [ class "column" ] [ casilla "Nombre de la Administradora" DefinirNombreAdministradoraSalud ]
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ]
-                    [ div [ class "field" ]
-                        [ p [ class "control" ] preguntarPertenenciaEtnica
-                        ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ div [ class "field" ]
+                    [ p [ class "control" ] preguntarPertenenciaEtnica
                     ]
                 ]
-            , div [ class "columns" ] preguntarGruposPoblacionales
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Departamento residencia Paciente" DefinirDepartamentoResidencia ]
-                , div [ class "column" ] [ casilla "Municipio residencia Paciente" DefinirMunicipioResidencia ]
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Dirección de Residencia" DefinirDireccionResidencia ]
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Fecha Inicio de los Síntomas" DefinirFechaInicioSintomas ]
-                , div [ class "column" ] [ casilla "Fecha de Consulta" DefinirFechaConsulta ]
-                , preguntarClasificacionInicial |> div [ class "column" ]
-                , div [ class "column" ] [ casilla "Hospitalizado" DefinirHospitalizado ]
-                ]
-            , div [ class "columns" ]
-                [ div [ class "column" ] [ casilla "Fecha de Hospitalización" DefinirFechaHospitalizacion ]
-                , div [ class "column" ] [ casilla "Condición Final" DefinirCondicionFinal ]
-                , div [ class "column" ] [ casilla "Fecha de Defunción" DefinirFechaDefuncion ]
-                , div [ class "column" ] [ casilla "Número de certificado de defunción" DefinirNumeroCertificadoDefuncion ]
-                ]
-            , div [ class "columns" ] [ text model.nombresPaciente ]
             ]
+        , div [ class "columns" ] preguntarGruposPoblacionales
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ casilla "Departamento residencia Paciente"
+                    DefinirDepartamentoResidencia
+                ]
+            , div [ class "column" ]
+                [ casilla "Municipio residencia Paciente"
+                    DefinirMunicipioResidencia
+                ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ casilla "Dirección de Residencia"
+                    DefinirDireccionResidencia
+                ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ casilla "Fecha Inicio de los Síntomas"
+                    DefinirFechaInicioSintomas
+                ]
+            , div [ class "column" ] [ casilla "Fecha de Consulta" DefinirFechaConsulta ]
+            , preguntarClasificacionInicial |> div [ class "column" ]
+            , div [ class "column" ]
+                [ checkBox ( "Hospitalizado", DefinirHospitalizado )
+                ]
+            ]
+        , div [ class "columns" ]
+            [ div [ class "column" ]
+                [ casilla "Fecha de Hospitalización"
+                    DefinirFechaHospitalizacion
+                ]
+            , div [ class "column" ] preguntarCondicionFinal
+            , div [ class "column" ] [ casilla "Fecha de Defunción" DefinirFechaDefuncion ]
+            , div [ class "column" ]
+                [ casilla "Número de certificado de defunción"
+                    DefinirNumeroCertificadoDefuncion
+                ]
+            ]
+        , div [ class "columns" ] [ text model.nombresPaciente ]
+        ]
 
 
 
