@@ -12,7 +12,8 @@ import DatosBasicos
 
 
 type alias Model =
-    { datosBasicos : Models.Model }
+    { datosBasicos : Models.Model
+    }
 
 
 type Msg
@@ -49,7 +50,7 @@ view model =
 
 init : String -> ( Model, Cmd Msg )
 init path =
-    ( { datosBasicos = initialModel }, Cmd.none )
+    ( { datosBasicos = initialModel }, Cmd.map FromDatosBasicos DatosBasicos.requestData )
 
 
 main : Program String Model Msg
@@ -58,5 +59,11 @@ main =
         { view = view
         , init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
+
+
+subscriptions model =
+    Sub.batch
+        [ Sub.map FromDatosBasicos DatosBasicos.subscriptions
+        ]

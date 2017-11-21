@@ -4,17 +4,13 @@ module Models exposing (..)
 
 import Date
 import Json.Encode as Encode
-import Json.Decode as Decode
+import Autocomplete
 
 
 type Genero
     = Masculino
     | Femenino
     | Indeterminado
-
-
-type alias Patient =
-    { name : String, gender : Genero, consultWhy : String, priority : Int, age : Int }
 
 
 type UnidadMedidaEdad
@@ -72,6 +68,10 @@ type CondicionFinal
     | NoSabeCondicionFinal
 
 
+type alias Pais =
+    ( String, String )
+
+
 type alias Model =
     { -- Informacion general
       nombreEvento : String
@@ -90,7 +90,7 @@ type alias Model =
     , sexoPaciente : Genero
 
     -- Ocurrencia del evento
-    , paisOcurrenciaCaso : String
+    , paisOcurrenciaCaso : Maybe Pais
     , departamentoOcurrenciaCaso : String
     , municipitoOcurrenciaCaso : String
     , localidadOcurrenciaCaso : String
@@ -134,6 +134,13 @@ type alias Model =
     , fechaDefuncion : Date.Date
     , numeroCertificadoDefuncion : Int
     , causaBasicaMuerte : String
+
+    -- Autocompletado casilla pais
+    , autoState : Autocomplete.State
+    , query : String
+    , countryList : List ( String, String )
+    , verSugerenciasPais : Bool
+    , numeroSugerencias : Int
     }
 
 
@@ -152,7 +159,7 @@ initialModel =
     , unidadMedidaEdad = NoAplicaEdad
     , sexoPaciente = Indeterminado
     , departamentoOcurrenciaCaso = ""
-    , paisOcurrenciaCaso = ""
+    , paisOcurrenciaCaso = Nothing
     , municipitoOcurrenciaCaso = ""
     , localidadOcurrenciaCaso = ""
     , barrioOcurrenciaCaso = ""
@@ -189,6 +196,13 @@ initialModel =
     , fechaDefuncion = Date.fromTime 0
     , numeroCertificadoDefuncion = 0
     , causaBasicaMuerte = ""
+
+    -- Autocompletado de la casilla de paises
+    , autoState = Autocomplete.empty
+    , query = ""
+    , countryList = []
+    , verSugerenciasPais = False
+    , numeroSugerencias = 5
     }
 
 
@@ -205,7 +219,11 @@ encondeForm model =
         , ( "numero_identificacion", Encode.int model.numeroIdentificacion )
         , ( "telefono", Encode.string model.telefono )
         , ( "sexo_paciente", Encode.string <| toString model.sexoPaciente )
-        , ( "pais_ocurrencia", Encode.string model.paisOcurrenciaCaso )
+        , ( "pais_ocurrencia"
+          , Encode.string <|
+                Tuple.first <|
+                    Maybe.withDefault ( "CO", "Colombia" ) model.paisOcurrenciaCaso
+          )
         , ( "municipio_ocurrencia", Encode.string model.municipitoOcurrenciaCaso )
         , ( "fecha_nacimiento_paciente"
           , Date.toTime model.fechaNacimientoPaciente
