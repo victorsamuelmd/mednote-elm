@@ -5,6 +5,8 @@ module Models exposing (..)
 import Date
 import Json.Encode as Encode
 import Autocomplete
+import CasillaDepartamentoMunicipio
+import ListaMunicipios exposing (Municipio)
 
 
 type Genero
@@ -141,6 +143,10 @@ type alias Model =
     , countryList : List ( String, String )
     , verSugerenciasPais : Bool
     , numeroSugerencias : Int
+
+    -- Autocompletado casilla municipios
+    , listaMunicipios : List Municipio
+    , municipiosEstado : CasillaDepartamentoMunicipio.Model
     }
 
 
@@ -203,6 +209,8 @@ initialModel =
     , countryList = []
     , verSugerenciasPais = False
     , numeroSugerencias = 5
+    , listaMunicipios = []
+    , municipiosEstado = CasillaDepartamentoMunicipio.init
     }
 
 

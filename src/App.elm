@@ -9,6 +9,7 @@ import Json.Encode as Encode
 import Json.Decode as Decode
 import Models exposing (..)
 import DatosBasicos
+import CasillaDepartamentoMunicipio
 
 
 type alias Model =
@@ -35,6 +36,23 @@ update msg model =
                 ( { model | datosBasicos = datos1 }, Cmd.map FromDatosBasicos cmd1 )
 
 
+establecerListaMunicipios model listaMunicipios =
+    let
+        municipiosEstado =
+            model.datosBasicos.municipiosEstado
+
+        datosBasicos =
+            model.datosBasicos
+
+        newModel =
+            { municipiosEstado | municipios = listaMunicipios }
+
+        newDatosBasicos =
+            { datosBasicos | municipiosEstado = newModel }
+    in
+        { model | datosBasicos = newDatosBasicos }
+
+
 
 ---- VIEW ----
 
@@ -48,12 +66,15 @@ view model =
 ---- PROGRAM ----
 
 
-init : String -> ( Model, Cmd Msg )
-init path =
-    ( { datosBasicos = initialModel }, Cmd.map FromDatosBasicos DatosBasicos.requestData )
+init : List { departamento : String, codigo : String, nombre : String } -> ( Model, Cmd Msg )
+init listaMunicipios =
+    ( establecerListaMunicipios { datosBasicos = initialModel } listaMunicipios
+    , Cmd.batch
+        [ Cmd.map FromDatosBasicos DatosBasicos.requestData
+        ]
+    )
 
 
-main : Program String Model Msg
 main =
     Html.programWithFlags
         { view = view
