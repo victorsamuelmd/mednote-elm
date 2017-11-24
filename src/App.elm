@@ -1,15 +1,9 @@
 module App exposing (..)
 
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
-import Http
-import Date
-import Json.Encode as Encode
-import Json.Decode as Decode
 import Models exposing (..)
 import DatosBasicos
-import CasillaDepartamentoMunicipio
+import CasillaDepartamentoMunicipio exposing (Municipio)
 
 
 type alias Model =
@@ -36,7 +30,7 @@ update msg model =
                 ( { model | datosBasicos = datos1 }, Cmd.map FromDatosBasicos cmd1 )
 
 
-establecerListaMunicipios model listaMunicipios =
+establecerListaMunicipios listaMunicipios model =
     let
         municipiosEstado =
             model.datosBasicos.municipiosEstado
@@ -53,6 +47,39 @@ establecerListaMunicipios model listaMunicipios =
         { model | datosBasicos = newDatosBasicos }
 
 
+establecerListaOcupaciones ocupaciones model =
+    let
+        datosBasicos =
+            model.datosBasicos
+
+        nuevoDatosBasicos =
+            { datosBasicos | listaOcupaciones = ocupaciones }
+    in
+        { model | datosBasicos = nuevoDatosBasicos }
+
+
+establecerListaPaises paises model =
+    let
+        datosBasicos =
+            model.datosBasicos
+
+        nuevoDatosBasicos =
+            { datosBasicos | listaPaises = paises }
+    in
+        { model | datosBasicos = nuevoDatosBasicos }
+
+
+establecerListaMunicipios1 municipios model =
+    let
+        datosBasicos =
+            model.datosBasicos
+
+        nuevoDatosBasicos =
+            { datosBasicos | listaMunicipios = municipios }
+    in
+        { model | datosBasicos = nuevoDatosBasicos }
+
+
 
 ---- VIEW ----
 
@@ -66,12 +93,21 @@ view model =
 ---- PROGRAM ----
 
 
-init : List { departamento : String, codigo : String, nombre : String } -> ( Model, Cmd Msg )
-init listaMunicipios =
-    ( establecerListaMunicipios { datosBasicos = initialModel } listaMunicipios
-    , Cmd.batch
-        [ Cmd.map FromDatosBasicos DatosBasicos.requestData
-        ]
+type alias Flags =
+    { municipios : List Municipio
+    , ocupaciones : List Models.Ocupacion
+    , paises : List Models.Pais
+    }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init objeto =
+    ( { datosBasicos = initialModel }
+        |> establecerListaMunicipios objeto.municipios
+        |> establecerListaOcupaciones objeto.ocupaciones
+        |> establecerListaPaises objeto.paises
+        |> establecerListaMunicipios1 objeto.municipios
+    , Cmd.none
     )
 
 

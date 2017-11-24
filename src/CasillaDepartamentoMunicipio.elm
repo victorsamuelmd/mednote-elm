@@ -1,4 +1,4 @@
-module CasillaDepartamentoMunicipio exposing (subscriptions, view, update, Msg, Model, init)
+module CasillaDepartamentoMunicipio exposing (Municipio, subscriptions, view, update, Msg, Model, init)
 
 --import Html exposing (..)
 --import Html.Events exposing (onInput, onClick, onCheck, onFocus, onWithOptions)
@@ -14,10 +14,13 @@ import Json.Decode as Json
 import Json.Encode as JE
 import Dom
 import Task
-import ListaMunicipios exposing (..)
 
 
 -- MODEL --
+
+
+type alias Municipio =
+    { departamento : String, codigo : String, nombre : String }
 
 
 subscriptions : Sub Msg
@@ -37,7 +40,7 @@ type alias Model =
 
 init : Model
 init =
-    { municipios = listaMunicipios
+    { municipios = []
     , autoState = Autocomplete.empty
     , howManyToShow = 5
     , query = ""
@@ -280,10 +283,10 @@ view model =
                         , onFocus OnFocus
                         , onWithOptions "keydown" options dec
                         , value query
-                        , id "president-input"
+                        , id "municipio-input"
                         , class "autocomplete-input"
                         , autocomplete False
-                        , attribute "aria-owns" "list-of-presidents"
+                        , attribute "aria-owns" "lista-de-municipios"
                         , attribute "aria-expanded" <| String.toLower <| toString model.showMenu
                         , attribute "aria-haspopup" <| String.toLower <| toString model.showMenu
                         , attribute "role" "combobox"

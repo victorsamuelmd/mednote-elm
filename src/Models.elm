@@ -4,9 +4,7 @@ module Models exposing (..)
 
 import Date
 import Json.Encode as Encode
-import Autocomplete
-import CasillaDepartamentoMunicipio
-import ListaMunicipios exposing (Municipio)
+import CasillaDepartamentoMunicipio exposing (Municipio)
 
 
 type Genero
@@ -71,7 +69,11 @@ type CondicionFinal
 
 
 type alias Pais =
-    ( String, String )
+    { codigo : String, pais : String }
+
+
+type alias Ocupacion =
+    { codigo : String, ocupacion : String }
 
 
 type alias Model =
@@ -92,7 +94,6 @@ type alias Model =
     , sexoPaciente : Genero
 
     -- Ocurrencia del evento
-    , paisOcurrenciaCaso : Maybe Pais
     , departamentoOcurrenciaCaso : String
     , municipitoOcurrenciaCaso : String
     , localidadOcurrenciaCaso : String
@@ -102,7 +103,6 @@ type alias Model =
     , areaOcurrenciaCaso : AreaOcurrencia
 
     -- Demograficos
-    , ocupacionPaciente : String
     , tipoRegimenSalud : AdministradoraSalud
     , nombreAdministradoraSalud : String
     , pertenenciaEtnica : PertenenciaEtnica
@@ -138,15 +138,20 @@ type alias Model =
     , causaBasicaMuerte : String
 
     -- Autocompletado casilla pais
-    , autoState : Autocomplete.State
-    , query : String
-    , countryList : List ( String, String )
-    , verSugerenciasPais : Bool
-    , numeroSugerencias : Int
+    , listaPaises : List Pais
+    , busquedaPais : String
+    , mostrarSugerenciasPais : Bool
+    , paisOcurrenciaCaso : Maybe Pais
 
     -- Autocompletado casilla municipios
     , listaMunicipios : List Municipio
     , municipiosEstado : CasillaDepartamentoMunicipio.Model
+
+    -- Autocompletado ocupacion
+    , listaOcupaciones : List Ocupacion
+    , busquedaOcupacion : String
+    , mostrarSugerenciasOcupacion : Bool
+    , ocupacionPaciente : Maybe Ocupacion
     }
 
 
@@ -172,7 +177,7 @@ initialModel =
     , cabeceraCentroRuralOcurrenciaCaso = ""
     , veredaZonaOcurrenciaCaso = ""
     , areaOcurrenciaCaso = CabeceraMunicipal
-    , ocupacionPaciente = ""
+    , ocupacionPaciente = Nothing
     , tipoRegimenSalud = NoAsegurado
     , nombreAdministradoraSalud = ""
     , pertenenciaEtnica = Otro
@@ -204,13 +209,18 @@ initialModel =
     , causaBasicaMuerte = ""
 
     -- Autocompletado de la casilla de paises
-    , autoState = Autocomplete.empty
-    , query = ""
-    , countryList = []
-    , verSugerenciasPais = False
-    , numeroSugerencias = 5
+    , listaPaises = []
+    , busquedaPais = ""
+    , mostrarSugerenciasPais = False
+
+    -- Autocompletado municipios
     , listaMunicipios = []
     , municipiosEstado = CasillaDepartamentoMunicipio.init
+
+    -- Autocompletado trabjo
+    , listaOcupaciones = []
+    , busquedaOcupacion = ""
+    , mostrarSugerenciasOcupacion = False
     }
 
 
@@ -228,9 +238,10 @@ encondeForm model =
         , ( "telefono", Encode.string model.telefono )
         , ( "sexo_paciente", Encode.string <| toString model.sexoPaciente )
         , ( "pais_ocurrencia"
-          , Encode.string <|
-                Tuple.first <|
-                    Maybe.withDefault ( "CO", "Colombia" ) model.paisOcurrenciaCaso
+          , model.paisOcurrenciaCaso
+                |> Maybe.withDefault (Pais "CO" "Colombia")
+                |> .codigo
+                |> Encode.string
           )
         , ( "municipio_ocurrencia", Encode.string model.municipitoOcurrenciaCaso )
         , ( "fecha_nacimiento_paciente"
@@ -245,7 +256,12 @@ encondeForm model =
           )
         , ( "vereda_zona_ocurrencia_caso", Encode.string model.veredaZonaOcurrenciaCaso )
         , ( "area_ocurrencia_caso", Encode.string <| toString model.areaOcurrenciaCaso )
-        , ( "ocupacion_paciente", Encode.string model.ocupacionPaciente )
+        , ( "ocupacion_paciente"
+          , model.ocupacionPaciente
+                |> Maybe.withDefault (Ocupacion "9629" "Ocupaciones elementales no clasificadas bajo otros epígrafes")
+                |> .codigo
+                |> Encode.string
+          )
         , ( "tipo_regimen_salud", Encode.string <| toString model.tipoRegimenSalud )
         , ( "nombre_administradora_salud", Encode.string model.nombreAdministradoraSalud )
         , ( "pertenencia_etnica", Encode.string <| toString model.pertenenciaEtnica )

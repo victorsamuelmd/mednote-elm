@@ -1,4 +1,4 @@
-module DatosBasicos exposing (Msg, view, update, requestData, subscriptions)
+module DatosBasicos exposing (Msg, view, update, subscriptions)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -7,7 +7,6 @@ import Http
 import Date
 import Json.Decode as Decode
 import Models exposing (..)
-import Autocomplete
 import Navigation
 import CasillaDepartamentoMunicipio exposing (..)
 
@@ -30,7 +29,6 @@ type Msg
     | DefinirCabeceraCentroRuralOcurrenciaCaso String
     | DefinirVeredaZonaOcurrenciaCaso String
     | DefinirAreaOcurrenciaCaso AreaOcurrencia
-    | DefinirOcupacionPaciente String
     | DefinirTipoRegimenSalud AdministradoraSalud
     | DefinirNombreAdministradoraSalud String
     | DefinirPertenenciaEtnica PertenenciaEtnica
@@ -59,91 +57,21 @@ type Msg
     | DefinirFechaDefuncion String
     | DefinirNumeroCertificadoDefuncion String
     | DefinirCausaBasicaMuerte String
-      -- Mensajes provenientes de la casilla de autocompletado de pais
-    | SetAutocompleteState Autocomplete.Msg
-    | SetQuery String
-    | SeleccionarPaisRaton String
-    | SeleccionarPaisTeclado String
-    | PrevisualizarPais String
-    | Wrap Bool
-    | Reset
-    | HandleEscape
-      --| OnFocus
+      -- Autocompletado Paises
+    | FijarBusquedaPais String
+    | DefinirPaisOcurrencia Pais
       -- Autocompletado municipios
     | SendToMunicipios CasillaDepartamentoMunicipio.Msg
+      -- Aucompletado ocupacion
+    | FijarBusquedaOcupacion String
+    | DefinirOcupacionPaciente Ocupacion
       -- Http
     | Enviar
     | SendDataToServer (Result Http.Error String)
-    | GetCoutryList (Result Http.Error (List ( String, String )))
-    | NoOp
-
-
-
--- Autocomplete Logic
-
-
-acceptableCountry : String -> List ( String, String ) -> List ( String, String )
-acceptableCountry query country =
-    let
-        lowerQuery =
-            String.toLower query
-    in
-        List.filter (String.contains lowerQuery << String.toLower << Tuple.second) country
 
 
 
 -- Set up what will happen with your menu updates
-
-
-updateConfig : Autocomplete.UpdateConfig Msg Pais
-updateConfig =
-    Autocomplete.updateConfig
-        { toId = Tuple.second
-        , onKeyDown =
-            \code maybeId ->
-                if code == 13 then
-                    Maybe.map SeleccionarPaisTeclado maybeId
-                    --else if code == 27 then
-                    --Just HandleEscape
-                else if code == 38 || code == 40 then
-                    Maybe.map PrevisualizarPais maybeId
-                else
-                    Just NoOp
-        , onTooLow = Wrap False |> Just
-        , onTooHigh = Wrap True |> Just
-        , onMouseEnter = \id -> PrevisualizarPais id |> Just
-        , onMouseLeave = \_ -> Nothing
-        , onMouseClick = \id -> Just <| SeleccionarPaisRaton id
-        , separateSelections = False
-        }
-
-
-
--- setup for your autocomplete view
-
-
-viewConfig : Autocomplete.ViewConfig ( String, String )
-viewConfig =
-    let
-        customizedLi keySelected mouseSelected pais =
-            { attributes =
-                [ classList
-                    [ ( "pure-menu-item", True )
-                    , ( "item-selected", keySelected || mouseSelected )
-                    ]
-                ]
-            , children = [ a [ class "pure-menu-link" ] [ Html.text (Tuple.second pais) ] ]
-            }
-    in
-        Autocomplete.viewConfig
-            { toId = Tuple.second
-            , ul = [ class "pure-menu custom-restricted-width" ] -- set classes for your list
-            , li = customizedLi -- given selection states and a person, create some Html!
-            }
-
-
-
--- and let's show it! (See an example for the full code snippet)
 
 
 sendData : Models.Model -> Cmd Msg
@@ -154,16 +82,6 @@ sendData model =
     in
         Http.send SendDataToServer <|
             Http.post server (encondeForm model |> Http.jsonBody) Decode.string
-
-
-requestData : Cmd Msg
-requestData =
-    let
-        server =
-            "/country.json"
-    in
-        Http.send GetCoutryList <|
-            Http.get server (Decode.keyValuePairs Decode.string)
 
 
 convertirTipoIdentificacion : String -> TipoIdentificacion
@@ -192,45 +110,6 @@ convertirTipoIdentificacion tipo =
 
         _ ->
             CedulaCiudadania
-
-
-removeSelection : Models.Model -> Models.Model
-removeSelection model =
-    { model | paisOcurrenciaCaso = Nothing }
-
-
-resetMenu : Models.Model -> Models.Model
-resetMenu model =
-    { model
-        | autoState = Autocomplete.empty
-        , verSugerenciasPais = False
-    }
-
-
-resetInput : Models.Model -> Models.Model
-resetInput model =
-    { model | query = "" }
-        |> removeSelection
-        |> resetMenu
-
-
-setQuery : String -> Models.Model -> Models.Model
-setQuery id model =
-    let
-        pais =
-            getCoutryAtId model.countryList id
-    in
-        { model
-            | query = Tuple.second <| pais
-            , paisOcurrenciaCaso = Just <| pais
-        }
-
-
-getCoutryAtId : List ( String, String ) -> String -> ( String, String )
-getCoutryAtId paises id =
-    List.filter (\pais -> (Tuple.second pais) == id) paises
-        |> List.head
-        |> Maybe.withDefault ( "CO", "Colombia" )
 
 
 update : Msg -> Models.Model -> ( Models.Model, Cmd Msg )
@@ -291,7 +170,13 @@ update action model =
             ( { model | areaOcurrenciaCaso = nuevo }, Cmd.none )
 
         DefinirOcupacionPaciente nuevo ->
-            ( { model | ocupacionPaciente = nuevo }, Cmd.none )
+            ( { model
+                | ocupacionPaciente = Just nuevo
+                , mostrarSugerenciasOcupacion = False
+                , busquedaOcupacion = nuevo.ocupacion
+              }
+            , Cmd.none
+            )
 
         DefinirTipoRegimenSalud nuevo ->
             ( { model | tipoRegimenSalud = nuevo }, Cmd.none )
@@ -409,148 +294,27 @@ update action model =
         SendDataToServer (Err _) ->
             ( model, Cmd.none )
 
-        SetAutocompleteState autoMsg ->
-            let
-                ( newState, maybeMsg ) =
-                    Autocomplete.update updateConfig
-                        autoMsg
-                        model.numeroSugerencias
-                        model.autoState
-                        (acceptableCountry model.query model.countryList)
-
-                newModel =
-                    { model | autoState = newState }
-            in
-                case maybeMsg of
-                    Nothing ->
-                        ( newModel, Cmd.none )
-
-                    Just updateMsg ->
-                        update updateMsg newModel
-
-        HandleEscape ->
-            let
-                validOptions =
-                    not <| List.isEmpty (acceptableCountry model.query model.countryList)
-
-                handleEscape =
-                    if validOptions then
-                        model
-                            |> removeSelection
-                            |> resetMenu
-                    else
-                        model
-                            |> resetInput
-
-                escapedModel =
-                    case model.paisOcurrenciaCaso of
-                        Just pais ->
-                            if model.query == Tuple.second pais then
-                                model
-                                    |> resetInput
-                            else
-                                handleEscape
-
-                        Nothing ->
-                            handleEscape
-            in
-                ( escapedModel, Cmd.none )
-
-        SetQuery nuevo ->
-            let
-                showMenu =
-                    not << List.isEmpty <| (acceptableCountry nuevo model.countryList)
-            in
-                ( { model
-                    | query = nuevo
-                    , verSugerenciasPais = showMenu
-                    , paisOcurrenciaCaso = Nothing
-                  }
-                , Cmd.none
-                )
-
-        SeleccionarPaisRaton nuevo ->
-            ( model
-                |> setQuery nuevo
-                |> resetMenu
-            , Cmd.none
-            )
-
-        SeleccionarPaisTeclado nuevo ->
-            ( model
-                |> setQuery nuevo
-                |> resetMenu
-            , Cmd.none
-            )
-
-        Reset ->
-            ( { model
-                | autoState = Autocomplete.reset updateConfig model.autoState
-                , paisOcurrenciaCaso = Nothing
-              }
-            , Cmd.none
-            )
-
-        PrevisualizarPais id ->
-            ( { model
-                | paisOcurrenciaCaso =
-                    getCoutryAtId model.countryList id
-                        |> Just
-              }
-            , Cmd.none
-            )
-
-        Wrap toTop ->
-            case model.paisOcurrenciaCaso of
-                Just pais ->
-                    update Reset model
-
-                Nothing ->
-                    if toTop then
-                        ( { model
-                            | autoState =
-                                Autocomplete.resetToLastItem updateConfig
-                                    (acceptableCountry model.query model.countryList)
-                                    5
-                                    model.autoState
-                            , paisOcurrenciaCaso =
-                                (acceptableCountry model.query model.countryList)
-                                    |> List.take model.numeroSugerencias
-                                    |> List.reverse
-                                    |> List.head
-                          }
-                        , Cmd.none
-                        )
-                    else
-                        ( { model
-                            | autoState =
-                                Autocomplete.resetToFirstItem updateConfig
-                                    (acceptableCountry model.query model.countryList)
-                                    model.numeroSugerencias
-                                    model.autoState
-                            , paisOcurrenciaCaso =
-                                (acceptableCountry model.query model.countryList)
-                                    |> List.take model.numeroSugerencias
-                                    |> List.head
-                          }
-                        , Cmd.none
-                        )
-
-        GetCoutryList (Ok clist) ->
-            ( { model | countryList = clist }, Cmd.none )
-
-        GetCoutryList (Err _) ->
-            ( model, Cmd.none )
-
-        NoOp ->
-            ( model, Cmd.none )
-
         SendToMunicipios msg ->
             let
                 ( estado, _ ) =
                     CasillaDepartamentoMunicipio.update msg model.municipiosEstado
             in
                 ( { model | municipiosEstado = estado }, Cmd.none )
+
+        FijarBusquedaOcupacion nuevo ->
+            ( { model | busquedaOcupacion = nuevo, mostrarSugerenciasOcupacion = True }, Cmd.none )
+
+        FijarBusquedaPais nuevo ->
+            { model | busquedaPais = nuevo, mostrarSugerenciasPais = True } ! []
+
+        DefinirPaisOcurrencia nuevo ->
+            ( { model
+                | paisOcurrenciaCaso = Just nuevo
+                , mostrarSugerenciasPais = False
+                , busquedaPais = nuevo.pais
+              }
+            , Cmd.none
+            )
 
 
 maybeTuple : Maybe ( a, b ) -> Maybe b
@@ -572,87 +336,6 @@ view model =
     div []
         [ div [ class "container" ] [ basicDataform model ]
         ]
-
-
-preguntarPaisOcurrencia : Models.Model -> Html Msg
-preguntarPaisOcurrencia { autoState, query, countryList, verSugerenciasPais, paisOcurrenciaCaso, numeroSugerencias } =
-    let
-        options =
-            { preventDefault = True, stopPropagation = False }
-
-        dec =
-            (Decode.map
-                (\code ->
-                    if code == 38 || code == 40 then
-                        Ok NoOp
-                    else if code == 27 then
-                        Ok HandleEscape
-                    else
-                        Err "not handling that key"
-                )
-                Html.Events.keyCode
-            )
-                |> Decode.andThen
-                    fromResult
-
-        fromResult : Result String a -> Decode.Decoder a
-        fromResult result =
-            case result of
-                Ok val ->
-                    Decode.succeed val
-
-                Err reason ->
-                    Decode.fail reason
-
-        menu =
-            if verSugerenciasPais then
-                [ Html.map SetAutocompleteState
-                    (Autocomplete.view viewConfig numeroSugerencias autoState (acceptableCountry query countryList))
-                ]
-            else
-                []
-
-        query1 =
-            case paisOcurrenciaCaso of
-                Just pais ->
-                    Tuple.second pais
-
-                Nothing ->
-                    query
-
-        activeDescendant attributes =
-            case paisOcurrenciaCaso of
-                Just pais ->
-                    (attribute "aria-activedescendant"
-                        (Tuple.second pais)
-                    )
-                        :: attributes
-
-                Nothing ->
-                    attributes
-    in
-        div []
-            (List.append
-                [ input
-                    (activeDescendant
-                        [ onInput SetQuery
-                        , onFocus NoOp
-                        , onWithOptions "keydown" options dec
-                        , value query1
-                        , id "pais-ocurrencia-input"
-                        , class "autocomplete-input"
-                        , autocomplete False
-                        , attribute "aria-owns" "list-of-presidents"
-                        , attribute "aria-expanded" <| String.toLower <| toString verSugerenciasPais
-                        , attribute "aria-haspopup" <| String.toLower <| toString verSugerenciasPais
-                        , attribute "role" "combobox"
-                        , attribute "aria-autocomplete" "list"
-                        ]
-                    )
-                    []
-                ]
-                menu
-            )
 
 
 tabs : Html Msg
@@ -799,7 +482,7 @@ basicDataform model =
             , div [] ((text "Genero") :: preguntarGeneroPaciente)
             , label [] [ text "Pais de Ocurrencia" ]
             , preguntarPaisOcurrencia model
-            , (if model.paisOcurrenciaCaso == Just ( "CO", "Colombia" ) then
+            , (if model.paisOcurrenciaCaso == Just (Pais "CO" "Colombia") then
                 Html.map SendToMunicipios (CasillaDepartamentoMunicipio.view model.municipiosEstado)
                else
                 div []
@@ -812,7 +495,8 @@ basicDataform model =
             , casilla "Barrio" DefinirBarrioOcurrenciaCaso
             , casilla "Cabecera Municipal/Centro Poblado/Rural Disperso" DefinirCabeceraCentroRuralOcurrenciaCaso
             , casilla "Vereda/Zona" DefinirVeredaZonaOcurrenciaCaso
-            , casilla "Ocupación del Paciente" DefinirOcupacionPaciente
+            , label [] [ text "Ocupacion" ]
+            , autocompleteInput model "trabajo" model.busquedaOcupacion model.listaOcupaciones
             , div [ class "col" ] <| (text "Regimen del Paciente") :: preguntarRegimenSalud
             , casilla "Nombre de la Administradora" DefinirNombreAdministradoraSalud
             , div [ class "col" ]
@@ -851,6 +535,86 @@ basicDataform model =
 subscriptions : Sub Msg
 subscriptions =
     Sub.batch
-        [ Sub.map SetAutocompleteState Autocomplete.subscription
-        , Sub.map SendToMunicipios CasillaDepartamentoMunicipio.subscriptions
+        [ Sub.map SendToMunicipios CasillaDepartamentoMunicipio.subscriptions
         ]
+
+
+autocompleteInput : Models.Model -> String -> String -> List Ocupacion -> Html Msg
+autocompleteInput model name_ str lst =
+    div []
+        [ input [ name name_, type_ "text", onInput FijarBusquedaOcupacion, value model.busquedaOcupacion ] []
+        , if model.mostrarSugerenciasOcupacion then
+            ul [ class "pure-menu custom-restricted-width" ]
+                (listaSugerenciasOcupaciones model str)
+          else
+            text ""
+        ]
+
+
+listaSugerenciasOcupaciones model str =
+    let
+        listItem ocupacion =
+            li [ class "pure-menu-item" ]
+                [ a
+                    [ onClick (DefinirOcupacionPaciente ocupacion)
+                    , class "pure-menu-link"
+                    ]
+                    [ text ocupacion.ocupacion ]
+                ]
+    in
+        List.map listItem (filtroOcupaciones model.listaOcupaciones str)
+
+
+filtroOcupaciones : List Ocupacion -> String -> List Ocupacion
+filtroOcupaciones ocupaciones str =
+    let
+        enMinusculas =
+            String.toLower str
+
+        filtro =
+            String.contains enMinusculas << String.toLower << .ocupacion
+    in
+        List.filter filtro ocupaciones
+            |> List.take 5
+
+
+preguntarPaisOcurrencia model =
+    let
+        listItem pais =
+            li [ class "pure-menu-item" ]
+                [ a
+                    [ class "pure-menu-link"
+                    , onClick (DefinirPaisOcurrencia pais)
+                    ]
+                    [ text pais.pais ]
+                ]
+
+        listaSugerencias =
+            filtroPaises model.listaPaises model.busquedaPais
+    in
+        div []
+            [ input
+                [ type_ "text"
+                , onInput FijarBusquedaPais
+                , name "preguntar-pais-ocurrencia"
+                , value model.busquedaPais
+                ]
+                []
+            , if model.mostrarSugerenciasPais then
+                List.map listItem listaSugerencias |> ul [ class "pure-menui custom-restricted-width" ]
+              else
+                text ""
+            ]
+
+
+filtroPaises : List Pais -> String -> List Pais
+filtroPaises paises str =
+    let
+        enMinusculas =
+            String.toLower str
+
+        filtro =
+            String.contains enMinusculas << String.toLower << .pais
+    in
+        List.filter filtro paises
+            |> List.take 5
