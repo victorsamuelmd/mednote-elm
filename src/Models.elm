@@ -4,7 +4,6 @@ module Models exposing (..)
 
 import Date
 import Json.Encode as Encode
-import CasillaDepartamentoMunicipio exposing (Municipio)
 
 
 type Genero
@@ -76,6 +75,10 @@ type alias Ocupacion =
     { codigo : String, ocupacion : String }
 
 
+type alias Municipio =
+    { codigo : String, departamento : String, nombre : String }
+
+
 type alias Model =
     { -- Informacion general
       nombreEvento : String
@@ -145,7 +148,9 @@ type alias Model =
 
     -- Autocompletado casilla municipios
     , listaMunicipios : List Municipio
-    , municipiosEstado : CasillaDepartamentoMunicipio.Model
+    , busquedaMunicipio : String
+    , mostrarSugerenciasMunicipio : Bool
+    , municipioColombiano : Maybe Municipio
 
     -- Autocompletado ocupacion
     , listaOcupaciones : List Ocupacion
@@ -215,7 +220,9 @@ initialModel =
 
     -- Autocompletado municipios
     , listaMunicipios = []
-    , municipiosEstado = CasillaDepartamentoMunicipio.init
+    , busquedaMunicipio = ""
+    , mostrarSugerenciasMunicipio = False
+    , municipioColombiano = Nothing
 
     -- Autocompletado trabjo
     , listaOcupaciones = []
@@ -243,7 +250,10 @@ encondeForm model =
                 |> .codigo
                 |> Encode.string
           )
-        , ( "municipio_ocurrencia", Encode.string model.municipitoOcurrenciaCaso )
+        , ( "municipio_ocurrencia"
+          , model.municipitoOcurrenciaCaso
+                |> Encode.string
+          )
         , ( "fecha_nacimiento_paciente"
           , Date.toTime model.fechaNacimientoPaciente
                 |> Encode.float

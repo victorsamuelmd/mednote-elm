@@ -3,7 +3,6 @@ module App exposing (..)
 import Html exposing (..)
 import Models exposing (..)
 import DatosBasicos
-import CasillaDepartamentoMunicipio exposing (Municipio)
 
 
 type alias Model =
@@ -30,23 +29,6 @@ update msg model =
                 ( { model | datosBasicos = datos1 }, Cmd.map FromDatosBasicos cmd1 )
 
 
-establecerListaMunicipios listaMunicipios model =
-    let
-        municipiosEstado =
-            model.datosBasicos.municipiosEstado
-
-        datosBasicos =
-            model.datosBasicos
-
-        newModel =
-            { municipiosEstado | municipios = listaMunicipios }
-
-        newDatosBasicos =
-            { datosBasicos | municipiosEstado = newModel }
-    in
-        { model | datosBasicos = newDatosBasicos }
-
-
 establecerListaOcupaciones ocupaciones model =
     let
         datosBasicos =
@@ -69,7 +51,7 @@ establecerListaPaises paises model =
         { model | datosBasicos = nuevoDatosBasicos }
 
 
-establecerListaMunicipios1 municipios model =
+establecerListaMunicipios municipios model =
     let
         datosBasicos =
             model.datosBasicos
@@ -106,7 +88,6 @@ init objeto =
         |> establecerListaMunicipios objeto.municipios
         |> establecerListaOcupaciones objeto.ocupaciones
         |> establecerListaPaises objeto.paises
-        |> establecerListaMunicipios1 objeto.municipios
     , Cmd.none
     )
 

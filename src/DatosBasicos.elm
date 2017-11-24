@@ -8,7 +8,6 @@ import Date
 import Json.Decode as Decode
 import Models exposing (..)
 import Navigation
-import CasillaDepartamentoMunicipio exposing (..)
 
 
 ---- UPDATE ----
@@ -61,7 +60,8 @@ type Msg
     | FijarBusquedaPais String
     | DefinirPaisOcurrencia Pais
       -- Autocompletado municipios
-    | SendToMunicipios CasillaDepartamentoMunicipio.Msg
+    | FijarBusquedaMunicipio String
+    | DefinirMunicipioColombiano Municipio
       -- Aucompletado ocupacion
     | FijarBusquedaOcupacion String
     | DefinirOcupacionPaciente Ocupacion
@@ -168,15 +168,6 @@ update action model =
 
         DefinirAreaOcurrenciaCaso nuevo ->
             ( { model | areaOcurrenciaCaso = nuevo }, Cmd.none )
-
-        DefinirOcupacionPaciente nuevo ->
-            ( { model
-                | ocupacionPaciente = Just nuevo
-                , mostrarSugerenciasOcupacion = False
-                , busquedaOcupacion = nuevo.ocupacion
-              }
-            , Cmd.none
-            )
 
         DefinirTipoRegimenSalud nuevo ->
             ( { model | tipoRegimenSalud = nuevo }, Cmd.none )
@@ -294,37 +285,39 @@ update action model =
         SendDataToServer (Err _) ->
             ( model, Cmd.none )
 
-        SendToMunicipios msg ->
-            let
-                ( estado, _ ) =
-                    CasillaDepartamentoMunicipio.update msg model.municipiosEstado
-            in
-                ( { model | municipiosEstado = estado }, Cmd.none )
-
         FijarBusquedaOcupacion nuevo ->
-            ( { model | busquedaOcupacion = nuevo, mostrarSugerenciasOcupacion = True }, Cmd.none )
+            { model | busquedaOcupacion = nuevo, mostrarSugerenciasOcupacion = True } ! []
 
         FijarBusquedaPais nuevo ->
             { model | busquedaPais = nuevo, mostrarSugerenciasPais = True } ! []
 
+        FijarBusquedaMunicipio nuevo ->
+            { model | busquedaMunicipio = nuevo, mostrarSugerenciasMunicipio = True } ! []
+
         DefinirPaisOcurrencia nuevo ->
-            ( { model
+            { model
                 | paisOcurrenciaCaso = Just nuevo
                 , mostrarSugerenciasPais = False
                 , busquedaPais = nuevo.pais
+            }
+                ! []
+
+        DefinirOcupacionPaciente nuevo ->
+            ( { model
+                | ocupacionPaciente = Just nuevo
+                , mostrarSugerenciasOcupacion = False
+                , busquedaOcupacion = nuevo.ocupacion
               }
             , Cmd.none
             )
 
-
-maybeTuple : Maybe ( a, b ) -> Maybe b
-maybeTuple a =
-    case a of
-        Nothing ->
-            Nothing
-
-        Just ( b1, c1 ) ->
-            Just c1
+        DefinirMunicipioColombiano nuevo ->
+            { model
+                | municipioColombiano = Just nuevo
+                , mostrarSugerenciasMunicipio = False
+                , busquedaMunicipio = nuevo.nombre
+            }
+                ! []
 
 
 
@@ -482,14 +475,16 @@ basicDataform model =
             , div [] ((text "Genero") :: preguntarGeneroPaciente)
             , label [] [ text "Pais de Ocurrencia" ]
             , preguntarPaisOcurrencia model
-            , (if model.paisOcurrenciaCaso == Just (Pais "CO" "Colombia") then
-                Html.map SendToMunicipios (CasillaDepartamentoMunicipio.view model.municipiosEstado)
-               else
+            , if model.paisOcurrenciaCaso == Just (Pais "CO" "Colombia") then
+                div []
+                    [ label [] [ text "Departamento y Municipio de Ocurrencia" ]
+                    , preguntarMunicipioOcurrencia model
+                    ]
+              else
                 div []
                     [ casilla "Departamento" DefinirDepartamentoOcurrenciaCaso
                     , casilla "Municipio" DefinirMunicipitoOcurrenciaCaso
                     ]
-              )
             , preguntarAreaOcurrencia
             , casilla "Localidad" DefinirLocalidadOcurrenciaCaso
             , casilla "Barrio" DefinirBarrioOcurrenciaCaso
@@ -534,9 +529,15 @@ basicDataform model =
 
 subscriptions : Sub Msg
 subscriptions =
-    Sub.batch
-        [ Sub.map SendToMunicipios CasillaDepartamentoMunicipio.subscriptions
-        ]
+    Sub.batch []
+
+
+vistaSugerencias =
+    ul [ class "pure-menu custom-restricted-width" ]
+
+
+
+-- Autocompletado
 
 
 autocompleteInput : Models.Model -> String -> String -> List Ocupacion -> Html Msg
@@ -544,53 +545,55 @@ autocompleteInput model name_ str lst =
     div []
         [ input [ name name_, type_ "text", onInput FijarBusquedaOcupacion, value model.busquedaOcupacion ] []
         , if model.mostrarSugerenciasOcupacion then
-            ul [ class "pure-menu custom-restricted-width" ]
-                (listaSugerenciasOcupaciones model str)
+            listaSugerenciasOcupaciones model str
+                |> vistaSugerencias
           else
             text ""
         ]
 
 
+listItem mensaje funcion dato =
+    li [ class "pure-menu-item" ]
+        [ a
+            [ onClick (mensaje dato)
+            , class "pure-menu-link"
+            ]
+            [ text (funcion dato) ]
+        ]
+
+
 listaSugerenciasOcupaciones model str =
     let
-        listItem ocupacion =
-            li [ class "pure-menu-item" ]
-                [ a
-                    [ onClick (DefinirOcupacionPaciente ocupacion)
-                    , class "pure-menu-link"
-                    ]
-                    [ text ocupacion.ocupacion ]
-                ]
+        vista =
+            listItem DefinirOcupacionPaciente .ocupacion
+
+        lista =
+            filtroSugerencias model.listaOcupaciones str .ocupacion
     in
-        List.map listItem (filtroOcupaciones model.listaOcupaciones str)
+        List.map vista lista
 
 
-filtroOcupaciones : List Ocupacion -> String -> List Ocupacion
-filtroOcupaciones ocupaciones str =
+filtroSugerencias : List a -> String -> (a -> String) -> List a
+filtroSugerencias lista busqueda funcion =
     let
         enMinusculas =
-            String.toLower str
+            String.toLower busqueda
 
         filtro =
-            String.contains enMinusculas << String.toLower << .ocupacion
+            String.contains enMinusculas << String.toLower << funcion
     in
-        List.filter filtro ocupaciones
+        List.filter filtro lista
             |> List.take 5
 
 
+preguntarPaisOcurrencia : Model -> Html Msg
 preguntarPaisOcurrencia model =
     let
-        listItem pais =
-            li [ class "pure-menu-item" ]
-                [ a
-                    [ class "pure-menu-link"
-                    , onClick (DefinirPaisOcurrencia pais)
-                    ]
-                    [ text pais.pais ]
-                ]
+        vista =
+            listItem DefinirPaisOcurrencia .pais
 
         listaSugerencias =
-            filtroPaises model.listaPaises model.busquedaPais
+            filtroSugerencias model.listaPaises model.busquedaPais .pais
     in
         div []
             [ input
@@ -601,20 +604,33 @@ preguntarPaisOcurrencia model =
                 ]
                 []
             , if model.mostrarSugerenciasPais then
-                List.map listItem listaSugerencias |> ul [ class "pure-menui custom-restricted-width" ]
+                List.map vista listaSugerencias
+                    |> vistaSugerencias
               else
                 text ""
             ]
 
 
-filtroPaises : List Pais -> String -> List Pais
-filtroPaises paises str =
+preguntarMunicipioOcurrencia : Model -> Html Msg
+preguntarMunicipioOcurrencia model =
     let
-        enMinusculas =
-            String.toLower str
+        vista =
+            listItem DefinirMunicipioColombiano (\mun -> (.nombre mun ++ ", " ++ .departamento mun))
 
-        filtro =
-            String.contains enMinusculas << String.toLower << .pais
+        listaSugerencias =
+            filtroSugerencias model.listaMunicipios model.busquedaMunicipio .nombre
     in
-        List.filter filtro paises
-            |> List.take 5
+        div []
+            [ input
+                [ type_ "text"
+                , onInput FijarBusquedaMunicipio
+                , name "preguntar-municipio-ocurrencia"
+                , value model.busquedaMunicipio
+                ]
+                []
+            , if model.mostrarSugerenciasMunicipio then
+                List.map vista listaSugerencias
+                    |> vistaSugerencias
+              else
+                text ""
+            ]
