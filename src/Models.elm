@@ -4,6 +4,7 @@ module Models exposing (..)
 
 import Date
 import Json.Encode as Encode
+import DatePicker
 
 
 type Genero
@@ -22,7 +23,7 @@ type UnidadMedidaEdad
 
 
 type TipoIdentificacion
-    = TargetaIdentidad
+    = TarjetaIdentidad
     | RegistroCivil
     | CedulaCiudadania
     | CedulaExtrangeria
@@ -39,9 +40,11 @@ type AreaOcurrencia
 
 type AdministradoraSalud
     = Subsidiado
+    | Excepcion
+    | Especial
     | Contributivo
-    | Vinculado
     | NoAsegurado
+    | RegimenIndeterminado
 
 
 type PertenenciaEtnica
@@ -80,8 +83,8 @@ type alias Municipio =
 
 
 type alias Model =
-    { -- Informacion general
-      nombreEvento : String
+    { cuestionarioCompleto : Bool
+    , nombreEvento : String
     , codigoEvento : Int
     , fechaNotificacion : Date.Date
 
@@ -125,8 +128,6 @@ type alias Model =
     , otrosGruposPoblacionales : Bool
 
     -- Residencia del paciente
-    , departamentoResidencia : String
-    , municipioResidencia : String
     , direccionResidencia : String
 
     -- Fechas de relevancia
@@ -157,82 +158,24 @@ type alias Model =
     , busquedaOcupacion : String
     , mostrarSugerenciasOcupacion : Bool
     , ocupacionPaciente : Maybe Ocupacion
-    }
 
-
-initialModel : Model
-initialModel =
-    { nombreEvento = ""
-    , codigoEvento = 123
-    , fechaNotificacion = Date.fromTime 0
-    , numeroIdentificacion = 0
-    , tipoIdentificacion = CedulaCiudadania
-    , nombresPaciente = ""
-    , apellidosPaciente = ""
-    , telefono = ""
-    , fechaNacimientoPaciente = Date.fromTime 0
-    , edadPaciente = 0
-    , unidadMedidaEdad = NoAplicaEdad
-    , sexoPaciente = Indeterminado
-    , departamentoOcurrenciaCaso = ""
-    , paisOcurrenciaCaso = Nothing
-    , municipitoOcurrenciaCaso = ""
-    , localidadOcurrenciaCaso = ""
-    , barrioOcurrenciaCaso = ""
-    , cabeceraCentroRuralOcurrenciaCaso = ""
-    , veredaZonaOcurrenciaCaso = ""
-    , areaOcurrenciaCaso = CabeceraMunicipal
-    , ocupacionPaciente = Nothing
-    , tipoRegimenSalud = NoAsegurado
-    , nombreAdministradoraSalud = ""
-    , pertenenciaEtnica = Otro
-    , discapacitados = False
-    , migrantes = False
-    , gestantes = False
-    , infantilCargoIcbf = False
-    , desmovilizados = False
-    , victimasViolenciaArmada = False
-    , desplazados = False
-    , carcelarios = False
-    , indigentes = False
-    , madresComunitarias = False
-    , centrosPsiquiatricos = False
-    , otrosGruposPoblacionales = False
-    , departamentoResidencia = ""
-    , municipioResidencia = ""
-    , direccionResidencia = ""
-
-    -- Fechas de relevancia
-    , fechaInicioSintomas = Date.fromTime 0
-    , fechaConsulta = Date.fromTime 0
-    , clasificacionInicialCaso = CasoSospechoso
-    , hospitalizado = False
-    , fechaHospitalizacion = Date.fromTime 0
-    , condicionFinal = NoSabeCondicionFinal
-    , fechaDefuncion = Date.fromTime 0
-    , numeroCertificadoDefuncion = 0
-    , causaBasicaMuerte = ""
-
-    -- Autocompletado de la casilla de paises
-    , listaPaises = []
-    , busquedaPais = ""
-    , mostrarSugerenciasPais = False
-
-    -- Autocompletado municipios
-    , listaMunicipios = []
-    , busquedaMunicipio = ""
-    , mostrarSugerenciasMunicipio = False
-    , municipioColombiano = Nothing
-
-    -- Autocompletado trabjo
-    , listaOcupaciones = []
-    , busquedaOcupacion = ""
-    , mostrarSugerenciasOcupacion = False
+    -- Aucompletado municipio residencia
+    , busquedaMunicipioResidencia : String
+    , mostrarSugerenciasMunicipioResidencia : Bool
+    , municipioResidencia : Maybe Municipio
+    , datePickerConsulta : DatePicker.DatePicker
+    , datePickerInicioSintomas : DatePicker.DatePicker
+    , datePickerHospitalizacion : DatePicker.DatePicker
+    , datePickerDefuncion : DatePicker.DatePicker
     }
 
 
 
 -- Serializing
+
+
+municipioEstandar =
+    Municipio "Risaralda" "66170" "Dosquebradas"
 
 
 encondeForm : Model -> Encode.Value
@@ -251,14 +194,29 @@ encondeForm model =
                 |> Encode.string
           )
         , ( "municipio_ocurrencia"
-          , model.municipitoOcurrenciaCaso
-                |> Encode.string
+          , if model.municipitoOcurrenciaCaso == "" then
+                model.municipioColombiano
+                    |> Maybe.withDefault municipioEstandar
+                    |> .codigo
+                    |> Encode.string
+            else
+                model.departamentoOcurrenciaCaso
+                    |> Encode.string
           )
         , ( "fecha_nacimiento_paciente"
           , Date.toTime model.fechaNacimientoPaciente
                 |> Encode.float
           )
-        , ( "departamento_ocurrencia_caso", Encode.string model.departamentoOcurrenciaCaso )
+        , ( "departamento_ocurrencia_caso"
+          , Encode.string
+                (if model.departamentoOcurrenciaCaso == "" then
+                    model.municipioColombiano
+                        |> Maybe.withDefault municipioEstandar
+                        |> .departamento
+                 else
+                    model.departamentoOcurrenciaCaso
+                )
+          )
         , ( "localidad_ocurrencia_caso", Encode.string model.localidadOcurrenciaCaso )
         , ( "barrio_ocurrencia_caso", Encode.string model.barrioOcurrenciaCaso )
         , ( "cabecera_centro_rural_ocurrencia_caso"
@@ -287,8 +245,18 @@ encondeForm model =
         , ( "madres_comunitarias", Encode.bool model.madresComunitarias )
         , ( "centros_psiquiatricos", Encode.bool model.centrosPsiquiatricos )
         , ( "otros_grupos_poblacionales", Encode.bool model.otrosGruposPoblacionales )
-        , ( "departamento_residencia", Encode.string model.departamentoResidencia )
-        , ( "municipio_residencia", Encode.string model.municipioResidencia )
+        , ( "departamento_residencia"
+          , model.municipioResidencia
+                |> Maybe.withDefault municipioEstandar
+                |> .departamento
+                |> Encode.string
+          )
+        , ( "municipio_residencia"
+          , model.municipioResidencia
+                |> Maybe.withDefault municipioEstandar
+                |> .codigo
+                |> Encode.string
+          )
         , ( "direccion_residencia", Encode.string model.direccionResidencia )
 
         -- Fechas relevancia
