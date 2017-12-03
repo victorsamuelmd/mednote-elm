@@ -85,7 +85,7 @@ type alias Municipio =
 type alias Model =
     { cuestionarioCompleto : Bool
     , nombreEvento : String
-    , codigoEvento : Int
+    , codigoEvento : String
     , fechaNotificacion : Date.Date
 
     -- Identificacion del paciente
@@ -101,7 +101,7 @@ type alias Model =
 
     -- Ocurrencia del evento
     , departamentoOcurrenciaCaso : String
-    , municipitoOcurrenciaCaso : String
+    , municipioOcurrenciaCaso : String
     , localidadOcurrenciaCaso : String
     , barrioOcurrenciaCaso : String
     , cabeceraCentroRuralOcurrenciaCaso : String
@@ -181,7 +181,9 @@ municipioEstandar =
 encondeForm : Model -> Encode.Value
 encondeForm model =
     Encode.object
-        [ ( "nombres_paciente", Encode.string model.nombresPaciente )
+        [ ( "nombreEvento", Encode.string model.nombreEvento )
+        , ( "codigoEvento", Encode.string model.codigoEvento )
+        , ( "nombres_paciente", Encode.string model.nombresPaciente )
         , ( "apellidos_paciente", Encode.string model.apellidosPaciente )
         , ( "tipo_identificacion", Encode.string <| toString model.tipoIdentificacion )
         , ( "numero_identificacion", Encode.int model.numeroIdentificacion )
@@ -194,7 +196,7 @@ encondeForm model =
                 |> Encode.string
           )
         , ( "municipio_ocurrencia"
-          , if model.municipitoOcurrenciaCaso == "" then
+          , if model.municipioOcurrenciaCaso == "" then
                 model.municipioColombiano
                     |> Maybe.withDefault municipioEstandar
                     |> .codigo
@@ -270,5 +272,5 @@ encondeForm model =
         , ( "numero_certificado_defuncion"
           , Encode.int model.numeroCertificadoDefuncion
           )
-        , ( "causa_basica_muerte", Encode.string <| toString model.causaBasicaMuerte )
+        , ( "causa_basica_muerte", Encode.string model.causaBasicaMuerte )
         ]

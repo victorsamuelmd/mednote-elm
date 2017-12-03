@@ -20,7 +20,9 @@ type EstablecerFecha
 
 
 type Msg
-    = DefinirNombresPaciente String
+    = DefinirNombreEvento String
+    | DefinirCodigoEvento String
+    | DefinirNombresPaciente String
     | DefinirApellidosPaciente String
     | DefinirNumeroIdentificacion String
     | DefinirTipoIdentificacion String
@@ -28,7 +30,7 @@ type Msg
     | DefinirSexoPaciente Genero
     | DefinirFechaNacimientoPaciente String
     | DefinirDepartamentoOcurrenciaCaso String
-    | DefinirMunicipitoOcurrenciaCaso String
+    | DefinirMunicipioOcurrenciaCaso String
     | DefinirLocalidadOcurrenciaCaso String
     | DefinirBarrioOcurrenciaCaso String
     | DefinirCabeceraCentroRuralOcurrenciaCaso String
@@ -38,23 +40,24 @@ type Msg
     | DefinirNombreAdministradoraSalud String
     | DefinirPertenenciaEtnica PertenenciaEtnica
       -- Grupos Poblacionales
-    | DefinirDiscapacitados
-    | DefinirMigrantes
-    | DefinirGestantes
-    | DefinirInfantilCargoIcbf
-    | DefinirDesmovilizados
-    | DefinirVictimasViolenciaArmada
-    | DefinirDesplazados
-    | DefinirCarcelarios
-    | DefinirIndigentes
-    | DefinirMadresComunitarias
-    | DefinirCentrosPsiquiatricos
-    | DefinirOtrosGruposPoblacionales
+    | DefinirDiscapacitados Bool
+    | DefinirMigrantes Bool
+    | DefinirGestantes Bool
+    | DefinirInfantilCargoIcbf Bool
+    | DefinirDesmovilizados Bool
+    | DefinirVictimasViolenciaArmada Bool
+    | DefinirDesplazados Bool
+    | DefinirCarcelarios Bool
+    | DefinirIndigentes Bool
+    | DefinirMadresComunitarias Bool
+    | DefinirCentrosPsiquiatricos Bool
+    | DefinirOtrosGruposPoblacionales Bool
+      -- Direccion
     | DefinirDireccionResidencia String
     | DefinirFechaConsulta String
     | DefinirFechaInicioSintomas String
     | DefinirClasificacionInicial ClasificacionCaso
-    | DefinirHospitalizado
+    | DefinirHospitalizado Bool
     | DefinirFechaHospitalizacion String
     | DefinirCondicionFinal CondicionFinal
     | DefinirFechaDefuncion String
@@ -87,7 +90,7 @@ sendData : Models.Model -> Cmd Msg
 sendData model =
     let
         server =
-            "/save"
+            "/datosbasicos"
     in
         Http.send SendDataToServer <|
             Http.post server (encondeForm model |> Http.jsonBody) Decode.string
@@ -121,19 +124,37 @@ convertirTipoIdentificacion tipo =
             CedulaCiudadania
 
 
+cleanWhiteSpace : String -> String
+cleanWhiteSpace =
+    String.words >> String.join " "
+
+
+parseDateWithDefault : String -> Date.Date
+parseDateWithDefault =
+    Date.fromString >> Result.withDefault (Date.fromTime 0)
+
+
 update : Msg -> Models.Model -> ( Models.Model, Cmd Msg )
 update action model =
     case action of
+        DefinirNombreEvento nuevo ->
+            ( { model | nombreEvento = nuevo }, Cmd.none )
+
+        DefinirCodigoEvento nuevo ->
+            ( { model | codigoEvento = nuevo }, Cmd.none )
+
         DefinirNombresPaciente nuevo ->
-            ( { model | nombresPaciente = nuevo }, Cmd.none )
+            ( { model | nombresPaciente = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirApellidosPaciente nuevo ->
-            ( { model | apellidosPaciente = nuevo }, Cmd.none )
+            ( { model | apellidosPaciente = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirNumeroIdentificacion nuevo ->
             ( { model
                 | numeroIdentificacion =
-                    String.toInt nuevo
+                    nuevo
+                        |> String.trim
+                        |> String.toInt
                         |> Result.withDefault 0
               }
             , Cmd.none
@@ -143,37 +164,37 @@ update action model =
             ( { model | tipoIdentificacion = convertirTipoIdentificacion nuevo }, Cmd.none )
 
         DefinirTelefono nuevo ->
-            ( { model | telefono = nuevo }, Cmd.none )
+            ( { model | telefono = String.trim nuevo }, Cmd.none )
 
         DefinirFechaNacimientoPaciente nuevo ->
-            ( { model
+            { model
                 | fechaNacimientoPaciente =
-                    Result.withDefault (Date.fromTime 0) <|
-                        Date.fromString nuevo
-              }
-            , Cmd.none
-            )
+                    nuevo
+                        |> Date.fromString
+                        |> Result.withDefault (Date.fromTime 0)
+            }
+                ! []
 
         DefinirSexoPaciente nuevo ->
             ( { model | sexoPaciente = nuevo }, Cmd.none )
 
         DefinirDepartamentoOcurrenciaCaso nuevo ->
-            ( { model | departamentoOcurrenciaCaso = nuevo }, Cmd.none )
+            { model | departamentoOcurrenciaCaso = cleanWhiteSpace nuevo } ! []
 
-        DefinirMunicipitoOcurrenciaCaso nuevo ->
-            ( { model | municipitoOcurrenciaCaso = nuevo }, Cmd.none )
+        DefinirMunicipioOcurrenciaCaso nuevo ->
+            ( { model | municipioOcurrenciaCaso = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirLocalidadOcurrenciaCaso nuevo ->
-            ( { model | localidadOcurrenciaCaso = nuevo }, Cmd.none )
+            ( { model | localidadOcurrenciaCaso = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirBarrioOcurrenciaCaso nuevo ->
-            ( { model | barrioOcurrenciaCaso = nuevo }, Cmd.none )
+            ( { model | barrioOcurrenciaCaso = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirVeredaZonaOcurrenciaCaso nuevo ->
-            ( { model | veredaZonaOcurrenciaCaso = nuevo }, Cmd.none )
+            ( { model | veredaZonaOcurrenciaCaso = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirCabeceraCentroRuralOcurrenciaCaso nuevo ->
-            ( { model | cabeceraCentroRuralOcurrenciaCaso = nuevo }, Cmd.none )
+            ( { model | cabeceraCentroRuralOcurrenciaCaso = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirAreaOcurrenciaCaso nuevo ->
             ( { model | areaOcurrenciaCaso = nuevo }, Cmd.none )
@@ -182,98 +203,82 @@ update action model =
             ( { model | tipoRegimenSalud = nuevo }, Cmd.none )
 
         DefinirNombreAdministradoraSalud nuevo ->
-            ( { model | nombreAdministradoraSalud = nuevo }, Cmd.none )
+            ( { model | nombreAdministradoraSalud = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirPertenenciaEtnica nuevo ->
             ( { model | pertenenciaEtnica = nuevo }, Cmd.none )
 
         -- Grupos Poblacionales
-        DefinirDiscapacitados ->
-            ( { model | discapacitados = not model.discapacitados }, Cmd.none )
+        DefinirDiscapacitados bool ->
+            ( { model | discapacitados = bool }, Cmd.none )
 
-        DefinirMigrantes ->
-            ( { model | migrantes = not model.migrantes }, Cmd.none )
+        DefinirMigrantes bool ->
+            ( { model | migrantes = bool }, Cmd.none )
 
-        DefinirGestantes ->
-            ( { model | gestantes = not model.gestantes }, Cmd.none )
+        DefinirGestantes bool ->
+            ( { model | gestantes = bool }, Cmd.none )
 
-        DefinirInfantilCargoIcbf ->
-            ( { model | infantilCargoIcbf = not model.infantilCargoIcbf }, Cmd.none )
+        DefinirInfantilCargoIcbf bool ->
+            ( { model | infantilCargoIcbf = bool }, Cmd.none )
 
-        DefinirDesmovilizados ->
-            ( { model | desmovilizados = not model.desmovilizados }, Cmd.none )
+        DefinirDesmovilizados bool ->
+            ( { model | desmovilizados = bool }, Cmd.none )
 
-        DefinirVictimasViolenciaArmada ->
-            ( { model | victimasViolenciaArmada = not model.victimasViolenciaArmada }, Cmd.none )
+        DefinirVictimasViolenciaArmada bool ->
+            ( { model | victimasViolenciaArmada = bool }, Cmd.none )
 
-        DefinirDesplazados ->
-            ( { model | desplazados = not model.desplazados }, Cmd.none )
+        DefinirDesplazados bool ->
+            ( { model | desplazados = bool }, Cmd.none )
 
-        DefinirCarcelarios ->
-            ( { model | carcelarios = not model.carcelarios }, Cmd.none )
+        DefinirCarcelarios bool ->
+            ( { model | carcelarios = bool }, Cmd.none )
 
-        DefinirIndigentes ->
-            ( { model | indigentes = not model.indigentes }, Cmd.none )
+        DefinirIndigentes bool ->
+            ( { model | indigentes = bool }, Cmd.none )
 
-        DefinirMadresComunitarias ->
-            ( { model | madresComunitarias = not model.madresComunitarias }, Cmd.none )
+        DefinirMadresComunitarias bool ->
+            ( { model | madresComunitarias = bool }, Cmd.none )
 
-        DefinirCentrosPsiquiatricos ->
-            ( { model | centrosPsiquiatricos = not model.centrosPsiquiatricos }, Cmd.none )
+        DefinirCentrosPsiquiatricos bool ->
+            ( { model | centrosPsiquiatricos = bool }, Cmd.none )
 
-        DefinirOtrosGruposPoblacionales ->
-            ( { model | otrosGruposPoblacionales = not model.otrosGruposPoblacionales }, Cmd.none )
+        DefinirOtrosGruposPoblacionales bool ->
+            ( { model | otrosGruposPoblacionales = bool }, Cmd.none )
 
+        -- Direccion
         DefinirDireccionResidencia nuevo ->
             ( { model | direccionResidencia = nuevo }, Cmd.none )
 
         DefinirFechaConsulta nuevo ->
-            ( { model
-                | fechaConsulta =
-                    Result.withDefault (Date.fromTime 0) <|
-                        Date.fromString nuevo
-              }
-            , Cmd.none
-            )
+            { model | fechaConsulta = parseDateWithDefault nuevo } ! []
 
         DefinirFechaInicioSintomas nuevo ->
-            ( { model
-                | fechaInicioSintomas =
-                    Date.fromString nuevo
-                        |> Result.withDefault (Date.fromTime 0)
-              }
-            , Cmd.none
-            )
+            { model | fechaInicioSintomas = parseDateWithDefault nuevo } ! []
 
         DefinirClasificacionInicial nuevo ->
             ( { model | clasificacionInicialCaso = nuevo }, Cmd.none )
 
-        DefinirHospitalizado ->
-            ( { model | hospitalizado = not model.hospitalizado }, Cmd.none )
+        DefinirHospitalizado bool ->
+            ( { model | hospitalizado = bool }, Cmd.none )
 
         DefinirFechaHospitalizacion nuevo ->
-            ( { model
-                | fechaHospitalizacion =
-                    Result.withDefault (Date.fromTime 0) <|
-                        Date.fromString nuevo
-              }
-            , Cmd.none
-            )
+            { model | fechaHospitalizacion = parseDateWithDefault nuevo } ! []
 
         DefinirCondicionFinal nuevo ->
             ( { model | condicionFinal = nuevo }, Cmd.none )
 
         DefinirFechaDefuncion nuevo ->
+            { model | fechaDefuncion = parseDateWithDefault nuevo } ! []
+
+        DefinirNumeroCertificadoDefuncion nuevo ->
             ( { model
-                | fechaDefuncion =
-                    Result.withDefault (Date.fromTime 0) <|
-                        Date.fromString nuevo
+                | numeroCertificadoDefuncion =
+                    nuevo
+                        |> String.toInt
+                        |> Result.withDefault 0
               }
             , Cmd.none
             )
-
-        DefinirNumeroCertificadoDefuncion nuevo ->
-            ( { model | numeroCertificadoDefuncion = 0 }, Cmd.none )
 
         DefinirCausaBasicaMuerte nuevo ->
             ( { model | causaBasicaMuerte = nuevo }, Cmd.none )
@@ -286,6 +291,7 @@ update action model =
 
         SendDataToServer (Err err) ->
             ( model, Cmd.none )
+                |> Debug.log (toString err)
 
         FijarBusquedaOcupacion nuevo ->
             { model | busquedaOcupacion = nuevo, mostrarSugerenciasOcupacion = True } ! []
@@ -433,25 +439,30 @@ view model =
 
 casilla : String -> (String -> Msg) -> Html Msg
 casilla etiqueta accion =
-    div []
+    div [ class "form-group" ]
         [ label [] [ text etiqueta ]
-        , input [ type_ "text", onInput accion ] []
+        , input [ type_ "text", onInput accion, class "form-control" ] []
         ]
 
 
-checkBox : ( String, Msg ) -> Html Msg
+checkBox : ( String, Bool -> Msg ) -> Html Msg
 checkBox ( label_, msg ) =
-    label [ class "pure-checkbox" ]
-        [ input [ type_ "checkbox", onClick msg ] []
-        , text label_
+    div [ class "form-check" ]
+        [ label [ class "form-check-label" ]
+            [ input [ type_ "checkbox", class "form-check-input", onCheck msg ] []
+            , text label_
+            ]
         ]
 
 
 radioButton : String -> ( Msg, String ) -> Html Msg
 radioButton name_ ( msg, label_ ) =
-    label [ class "pure-radio" ]
-        [ input [ onClick msg, type_ "radio", name name_ ] []
-        , text label_
+    div [ class "form-check" ]
+        [ label
+            [ class "form-check-label" ]
+            [ input [ onClick msg, type_ "radio", name name_, class "form-check-input" ] []
+            , text label_
+            ]
         ]
 
 
@@ -476,14 +487,17 @@ preguntarAreaOcurrencia =
 
 preguntarTipoIdentificacion : Html Msg
 preguntarTipoIdentificacion =
-    select [ onInput DefinirTipoIdentificacion, class "custom-select" ]
-        [ option [ value "cc", selected True ] [ text "Cedula de Ciudadania" ]
-        , option [ value "ce" ] [ text "CedulaExtrangeria" ]
-        , option [ value "rc" ] [ text "Registro Civil" ]
-        , option [ value "ti" ] [ text "Tarjeta de Identidad" ]
-        , option [ value "ps" ] [ text "Pasaporte" ]
-        , option [ value "ms" ] [ text "Menor sin Identificacion" ]
-        , option [ value "as" ] [ text "Adulto sin Identificacion" ]
+    div [ class "form-group" ]
+        [ label [] [ text "Tipo de indentificacion" ]
+        , select [ onInput DefinirTipoIdentificacion, class "form-control custom-select" ]
+            [ option [ value "cc", selected True ] [ text "Cédula de Ciudadanía" ]
+            , option [ value "ce" ] [ text "Cédula de Extrangería" ]
+            , option [ value "rc" ] [ text "Registro Civil" ]
+            , option [ value "ti" ] [ text "Tarjeta de Identidad" ]
+            , option [ value "ps" ] [ text "Pasaporte" ]
+            , option [ value "ms" ] [ text "Menor sin Identificación" ]
+            , option [ value "as" ] [ text "Adulto sin Identificación" ]
+            ]
         ]
 
 
@@ -492,7 +506,7 @@ preguntarRegimenSalud =
     [ ( DefinirTipoRegimenSalud Subsidiado, "Subsidiado" )
     , ( DefinirTipoRegimenSalud Contributivo, "Contributivo" )
     , ( DefinirTipoRegimenSalud Especial, "Especial" )
-    , ( DefinirTipoRegimenSalud Excepcion, "Excepcion" )
+    , ( DefinirTipoRegimenSalud Excepcion, "Excepción" )
     , ( DefinirTipoRegimenSalud NoAsegurado, "No Asegurado" )
     , ( DefinirTipoRegimenSalud RegimenIndeterminado, "Indeterminado / Pendiente" )
     ]
@@ -534,10 +548,10 @@ preguntarClasificacionInicial =
     [ ( DefinirClasificacionInicial CasoSospechoso, "Sospechoso" )
     , ( DefinirClasificacionInicial CasoProbable, "Probable" )
     , ( DefinirClasificacionInicial ConfirmacionClinica
-      , "Confirmado por Clinica"
+      , "Confirmado por Clínica"
       )
     , ( DefinirClasificacionInicial ConfirmacionEpidemiologia
-      , "Confirmado por Nexo Epidemiologico"
+      , "Confirmado por Nexo Epidemiológico"
       )
     , ( DefinirClasificacionInicial ConfrimacionLaboratorio
       , "Confirmado por Laboratorio"
@@ -557,16 +571,17 @@ preguntarCondicionFinal =
 
 mensajeAyuda : String -> Html msg
 mensajeAyuda a =
-    span [ class "pure-form-message" ] [ text a ]
+    small [ class "form-text text-muted" ] [ text a ]
 
 
 basicDataform : Models.Model -> Html Msg
 basicDataform model =
-    Html.form [ class "pure-form pure-form-stacked", autocomplete False ]
+    Html.form [ class "", autocomplete False ]
         [ h2 [] [ text "Datos Basicos SIVIGILA" ]
+        , casilla "Nombre del Evento" DefinirNombreEvento
+        , casilla "Codigo del Evento" DefinirCodigoEvento
         , casilla "Nombres" DefinirNombresPaciente
         , casilla "Apellidos" DefinirApellidosPaciente
-        , label [] [ text "Tipo de Identificacion" ]
         , preguntarTipoIdentificacion
         , casilla "Numero de Indentificacion" DefinirNumeroIdentificacion
         , casilla "Teléfono" DefinirTelefono
@@ -583,9 +598,9 @@ basicDataform model =
           else
             div []
                 [ casilla "Departamento" DefinirDepartamentoOcurrenciaCaso
-                , casilla "Municipio" DefinirMunicipitoOcurrenciaCaso
+                , casilla "Municipio" DefinirMunicipioOcurrenciaCaso
                 ]
-        , preguntarAreaOcurrencia
+        , div [ class "form-check" ] [ preguntarAreaOcurrencia ]
         , casilla "Localidad" DefinirLocalidadOcurrenciaCaso
         , casilla "Barrio" DefinirBarrioOcurrenciaCaso
         , casilla "Cabecera Municipal/Centro Poblado/Rural Disperso" DefinirCabeceraCentroRuralOcurrenciaCaso
@@ -593,34 +608,37 @@ basicDataform model =
             casilla "Vereda/Zona" DefinirVeredaZonaOcurrenciaCaso
           else
             text ""
-        , label [] [ text "Ocupacion" ]
-        , autocompleteInput model "trabajo" model.busquedaOcupacion model.listaOcupaciones
+        , autocompleteInput model "trabajo" model.busquedaOcupacion model.listaOcupaciones "Ocupacion"
         , label [] [ text "Tipo de regimen en Salud" ]
         , div [] <| preguntarRegimenSalud
         , casilla "Nombre de la Administradora de Planes de Beneficios" DefinirNombreAdministradoraSalud
         , label [] [ text "Pertenencia Etnica" ]
         , div [] preguntarPertenenciaEtnica
         , fieldset [ class "form-group" ]
-            [ div [] <|
-                ((legend [] [ text "Grupos poblacionales a los que pertenece" ])
-                    :: preguntarGruposPoblacionales
-                )
+            [ label [] [ text "Grupos poblacionales a los que pertenece" ]
+            , div [] preguntarGruposPoblacionales
             ]
         , label [] [ text "Municipio y Departamento de Residencia" ]
         , preguntarMunicipioResidencia model
         , casilla "Dirección de Residencia" DefinirDireccionResidencia
-        , label [] [ text "Fecha de Inicio de los Sintomas" ]
-        , vistaFijarFecha
-            model.fechaInicioSintomas
-            model.datePickerInicioSintomas
-            (HaciaFijarFecha FechaInicioSintomas)
-        , label [] [ text "Fecha de Consulta" ]
-        , vistaFijarFecha
-            model.fechaConsulta
-            model.datePickerConsulta
-            (HaciaFijarFecha FechaConsulta)
-        , label [] [ text "Clasificacion Inicial" ]
-        , div [] preguntarClasificacionInicial
+        , div [ class "form-group" ]
+            [ label [] [ text "Fecha de Inicio de los Sintomas" ]
+            , vistaFijarFecha
+                model.fechaInicioSintomas
+                model.datePickerInicioSintomas
+                (HaciaFijarFecha FechaInicioSintomas)
+            ]
+        , div [ class "form-group" ]
+            [ label [] [ text "Fecha de Consulta" ]
+            , vistaFijarFecha
+                model.fechaConsulta
+                model.datePickerConsulta
+                (HaciaFijarFecha FechaConsulta)
+            ]
+        , fieldset [ class "form-group" ]
+            [ legend [] [ text "Clasificacion Inicial" ]
+            , div [] preguntarClasificacionInicial
+            ]
         , checkBox ( "Hospitalizado", DefinirHospitalizado )
         , if model.hospitalizado then
             div []
@@ -674,13 +692,21 @@ vistaFijarFecha fecha picker msg =
 
 vistaSugerencias : List (Html msg) -> Html msg
 vistaSugerencias =
-    ul [ class "pure-menu custom-restricted-width" ]
+    div [ class "vsmd-menu" ]
 
 
-autocompleteInput : Models.Model -> String -> String -> List Ocupacion -> Html Msg
-autocompleteInput model name_ str lst =
-    div []
-        [ input [ name name_, type_ "text", onInput FijarBusquedaOcupacion, value model.busquedaOcupacion ] []
+autocompleteInput : Models.Model -> String -> String -> List Ocupacion -> String -> Html Msg
+autocompleteInput model name_ str lst label_ =
+    div [ class "form-group" ]
+        [ label [] [ text label_ ]
+        , input
+            [ name name_
+            , class "form-control"
+            , type_ "text"
+            , onInput FijarBusquedaOcupacion
+            , value model.busquedaOcupacion
+            ]
+            []
         , if model.mostrarSugerenciasOcupacion then
             listaSugerenciasOcupaciones model str
                 |> vistaSugerencias
@@ -694,13 +720,11 @@ autocompleteInput model name_ str lst =
 
 
 listItem mensaje funcion dato =
-    li [ class "pure-menu-item" ]
-        [ a
-            [ onClick (mensaje dato)
-            , class "pure-menu-link"
-            ]
-            [ text (funcion dato) ]
+    a
+        [ onClick (mensaje dato)
+        , class "dropdown-item"
         ]
+        [ text (funcion dato) ]
 
 
 listaSugerenciasOcupaciones : Model -> String -> List (Html Msg)
@@ -743,6 +767,7 @@ preguntarPaisOcurrencia model =
                 , onInput FijarBusquedaPais
                 , name "preguntar-pais-ocurrencia"
                 , value model.busquedaPais
+                , class "form-control"
                 ]
                 []
             , if model.mostrarSugerenciasPais then
@@ -768,6 +793,7 @@ preguntarMunicipioOcurrencia model =
                 , onInput FijarBusquedaMunicipio
                 , name "preguntar-municipio-ocurrencia"
                 , value model.busquedaMunicipio
+                , class "form-control"
                 ]
                 []
             , if model.mostrarSugerenciasMunicipio then
@@ -793,6 +819,7 @@ preguntarMunicipioResidencia model =
                 , onInput FijarBusquedaMunicipioResidencia
                 , name "preguntar-municipio-residencia"
                 , value model.busquedaMunicipioResidencia
+                , class "form-control"
                 ]
                 []
             , if model.mostrarSugerenciasMunicipioResidencia then
@@ -822,7 +849,7 @@ init objeto =
     in
         ( { cuestionarioCompleto = False
           , nombreEvento = ""
-          , codigoEvento = 123
+          , codigoEvento = ""
           , fechaNotificacion = Date.fromTime 0
           , numeroIdentificacion = 0
           , tipoIdentificacion = CedulaCiudadania
@@ -835,7 +862,7 @@ init objeto =
           , sexoPaciente = Indeterminado
           , departamentoOcurrenciaCaso = ""
           , paisOcurrenciaCaso = Nothing
-          , municipitoOcurrenciaCaso = ""
+          , municipioOcurrenciaCaso = ""
           , localidadOcurrenciaCaso = ""
           , barrioOcurrenciaCaso = ""
           , cabeceraCentroRuralOcurrenciaCaso = ""
