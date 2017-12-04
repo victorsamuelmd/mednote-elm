@@ -150,21 +150,31 @@ update action model =
             ( { model | apellidosPaciente = cleanWhiteSpace nuevo }, Cmd.none )
 
         DefinirNumeroIdentificacion nuevo ->
-            ( { model
-                | numeroIdentificacion =
-                    nuevo
-                        |> String.trim
-                        |> String.toInt
-                        |> Result.withDefault 0
-              }
-            , Cmd.none
-            )
+            let
+                number =
+                    String.trim nuevo
+            in
+                case (String.toInt number) of
+                    Ok value_ ->
+                        { model | numeroIdentificacion = value_, numeroIdValido = Valid } ! []
+
+                    Err _ ->
+                        { model | numeroIdentificacion = 0, numeroIdValido = Invalid } ! []
 
         DefinirTipoIdentificacion nuevo ->
             ( { model | tipoIdentificacion = convertirTipoIdentificacion nuevo }, Cmd.none )
 
         DefinirTelefono nuevo ->
-            ( { model | telefono = String.trim nuevo }, Cmd.none )
+            let
+                number =
+                    String.trim nuevo
+            in
+                case (String.toInt number) of
+                    Ok value_ ->
+                        { model | telefono = value_, numeroTelValido = Valid } ! []
+
+                    Err _ ->
+                        { model | telefono = 0, numeroTelValido = Invalid } ! []
 
         DefinirFechaNacimientoPaciente nuevo ->
             { model
@@ -445,6 +455,39 @@ casilla etiqueta accion =
         ]
 
 
+casillaConAyuda : String -> String -> (String -> Msg) -> Html Msg
+casillaConAyuda mensaje etiqueta accion =
+    div [ class "form-group" ]
+        [ label [] [ text etiqueta ]
+        , input [ type_ "text", onInput accion, class "form-control" ] []
+        , small [ class "form-text text-muted" ] [ text mensaje ]
+        ]
+
+
+casillaConValidacion : InputState -> String -> String -> (String -> Msg) -> Html Msg
+casillaConValidacion state msjError etiqueta msg =
+    let
+        inputClass =
+            case state of
+                Valid ->
+                    "form-control alert-success"
+
+                Invalid ->
+                    "form-control alert-danger"
+
+                Pristine ->
+                    "form-control"
+    in
+        div [ class "form-group" ]
+            [ label [] [ text etiqueta ]
+            , input [ type_ "text", onInput msg, class inputClass ] []
+            , if state == Invalid then
+                small [ class "form-text text-danger" ] [ text msjError ]
+              else
+                text ""
+            ]
+
+
 checkBox : ( String, Bool -> Msg ) -> Html Msg
 checkBox ( label_, msg ) =
     div [ class "form-check" ]
@@ -583,10 +626,12 @@ basicDataform model =
         , casilla "Nombres" DefinirNombresPaciente
         , casilla "Apellidos" DefinirApellidosPaciente
         , preguntarTipoIdentificacion
-        , casilla "Numero de Indentificacion" DefinirNumeroIdentificacion
-        , casilla "Teléfono" DefinirTelefono
-        , casilla "Fecha Nacimiento" DefinirFechaNacimientoPaciente
-        , mensajeAyuda "Formato AAAA/MM/DD"
+        , casillaConValidacion model.numeroIdValido
+            "No parece un numero de documento"
+            "Numero de Indentificacion"
+            DefinirNumeroIdentificacion
+        , casillaConValidacion model.numeroTelValido "Usa solo numeros y un unico telefono" "Teléfono" DefinirTelefono
+        , casillaConAyuda "Formato AAAA/MM/DD" "Fecha Nacimiento" DefinirFechaNacimientoPaciente
         , div [] ((text "Genero") :: preguntarGeneroPaciente)
         , label [] [ text "Pais de Ocurrencia" ]
         , preguntarPaisOcurrencia model
@@ -667,7 +712,7 @@ basicDataform model =
           else
             text ""
         , button
-            [ class "pure-button"
+            [ class "btn btn-success btn-lg"
             , onWithOptions "click"
                 { stopPropagation = True, preventDefault = True }
                 (Decode.succeed Enviar)
@@ -847,7 +892,9 @@ init objeto =
         ( datePicker, datePickerCmd ) =
             DatePicker.init
     in
-        ( { cuestionarioCompleto = False
+        ( { numeroIdValido = Pristine
+          , numeroTelValido = Pristine
+          , cuestionarioCompleto = False
           , nombreEvento = ""
           , codigoEvento = ""
           , fechaNotificacion = Date.fromTime 0
@@ -855,7 +902,7 @@ init objeto =
           , tipoIdentificacion = CedulaCiudadania
           , nombresPaciente = ""
           , apellidosPaciente = ""
-          , telefono = ""
+          , telefono = 0
           , fechaNacimientoPaciente = Date.fromTime 0
           , edadPaciente = 0
           , unidadMedidaEdad = NoAplicaEdad

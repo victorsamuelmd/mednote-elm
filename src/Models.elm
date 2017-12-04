@@ -7,6 +7,12 @@ import Json.Encode as Encode
 import DatePicker
 
 
+type InputState
+    = Valid
+    | Invalid
+    | Pristine
+
+
 type Genero
     = Masculino
     | Femenino
@@ -84,6 +90,8 @@ type alias Municipio =
 
 type alias Model =
     { cuestionarioCompleto : Bool
+    , numeroIdValido : InputState
+    , numeroTelValido : InputState
     , nombreEvento : String
     , codigoEvento : String
     , fechaNotificacion : Date.Date
@@ -93,7 +101,7 @@ type alias Model =
     , tipoIdentificacion : TipoIdentificacion
     , nombresPaciente : String
     , apellidosPaciente : String
-    , telefono : String
+    , telefono : Int
     , fechaNacimientoPaciente : Date.Date
     , edadPaciente : Int
     , unidadMedidaEdad : UnidadMedidaEdad
@@ -187,7 +195,7 @@ encondeForm model =
         , ( "apellidos_paciente", Encode.string model.apellidosPaciente )
         , ( "tipo_identificacion", Encode.string <| toString model.tipoIdentificacion )
         , ( "numero_identificacion", Encode.int model.numeroIdentificacion )
-        , ( "telefono", Encode.string model.telefono )
+        , ( "telefono", Encode.int model.telefono )
         , ( "sexo_paciente", Encode.string <| toString model.sexoPaciente )
         , ( "pais_ocurrencia"
           , model.paisOcurrenciaCaso
