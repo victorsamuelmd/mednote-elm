@@ -103,7 +103,7 @@ convertirTipoIdentificacion tipo =
             CedulaCiudadania
 
         "ce" ->
-            CedulaExtrangeria
+            CedulaExtranjeria
 
         "rc" ->
             RegistroCivil
@@ -284,6 +284,7 @@ update action model =
             ( { model
                 | numeroCertificadoDefuncion =
                     nuevo
+                        |> String.trim
                         |> String.toInt
                         |> Result.withDefault 0
               }
@@ -297,7 +298,7 @@ update action model =
             ( model, sendData model )
 
         SendDataToServer (Ok key) ->
-            ( { model | cuestionarioCompleto = True }, Navigation.load ("/verficha/" ++ key) )
+            ( { model | cuestionarioCompleto = True }, Navigation.load ("/verdatosbasicos/" ++ key) )
 
         SendDataToServer (Err err) ->
             ( model, Cmd.none )
@@ -596,7 +597,7 @@ preguntarClasificacionInicial =
     , ( DefinirClasificacionInicial ConfirmacionEpidemiologia
       , "Confirmado por Nexo Epidemiológico"
       )
-    , ( DefinirClasificacionInicial ConfrimacionLaboratorio
+    , ( DefinirClasificacionInicial ConfirmacionLaboratorio
       , "Confirmado por Laboratorio"
       )
     ]

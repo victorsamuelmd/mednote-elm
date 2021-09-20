@@ -1,5 +1,4 @@
 import './main.css'
-import './css/bootstrap.min.css'
 import './css/style.css'
 import { municipios } from './municipios_colombia.js'
 import { ocupaciones } from './ocupaciones.js'
@@ -10,6 +9,6 @@ const Elm = require('./App.elm')
 
 const root = document.getElementById('root')
 
-Elm.App.embed(root, { municipios : municipios, 
+Elm.App.embed(root, { municipios : municipios,
                       ocupaciones: ocupaciones,
                       paises: paises })

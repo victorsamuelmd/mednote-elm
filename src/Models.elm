@@ -3,6 +3,7 @@ module Models exposing (..)
 ---- MODEL ----
 
 import Date
+import Date.Extra.Format as Format
 import Json.Encode as Encode
 import DatePicker
 
@@ -32,7 +33,7 @@ type TipoIdentificacion
     = TarjetaIdentidad
     | RegistroCivil
     | CedulaCiudadania
-    | CedulaExtrangeria
+    | CedulaExtranjeria
     | Pasaporte
     | MenorSinIdentifiacion
     | AdultoSinIdentificacion
@@ -67,7 +68,7 @@ type ClasificacionCaso
     | CasoSospechoso
     | ConfirmacionClinica
     | ConfirmacionEpidemiologia
-    | ConfrimacionLaboratorio
+    | ConfirmacionLaboratorio
 
 
 type CondicionFinal
@@ -189,8 +190,8 @@ municipioEstandar =
 encondeForm : Model -> Encode.Value
 encondeForm model =
     Encode.object
-        [ ( "nombreEvento", Encode.string model.nombreEvento )
-        , ( "codigoEvento", Encode.string model.codigoEvento )
+        [ ( "nombre_evento", Encode.string model.nombreEvento )
+        , ( "codigo_evento", Encode.string model.codigoEvento )
         , ( "nombres_paciente", Encode.string model.nombresPaciente )
         , ( "apellidos_paciente", Encode.string model.apellidosPaciente )
         , ( "tipo_identificacion", Encode.string <| toString model.tipoIdentificacion )
@@ -214,8 +215,8 @@ encondeForm model =
                     |> Encode.string
           )
         , ( "fecha_nacimiento_paciente"
-          , Date.toTime model.fechaNacimientoPaciente
-                |> Encode.float
+          , Format.isoString model.fechaNacimientoPaciente
+                |> Encode.string
           )
         , ( "departamento_ocurrencia_caso"
           , Encode.string
@@ -270,13 +271,13 @@ encondeForm model =
         , ( "direccion_residencia", Encode.string model.direccionResidencia )
 
         -- Fechas relevancia
-        , ( "fecha_inicio_sintomas", Encode.float <| Date.toTime model.fechaInicioSintomas )
-        , ( "fecha_consulta", Encode.float <| Date.toTime model.fechaConsulta )
+        , ( "fecha_inicio_sintomas", Encode.string <| Format.isoString model.fechaInicioSintomas )
+        , ( "fecha_consulta", Encode.string <| Format.isoString model.fechaConsulta )
         , ( "clasificacion_inicial_caso", Encode.string <| toString model.clasificacionInicialCaso )
         , ( "hospitalizado", Encode.bool model.hospitalizado )
-        , ( "fecha_hospitalizacion", Encode.float <| Date.toTime model.fechaHospitalizacion )
+        , ( "fecha_hospitalizacion", Encode.string <| Format.isoString model.fechaHospitalizacion )
         , ( "condicion_final", Encode.string <| toString model.condicionFinal )
-        , ( "fecha_defuncion", Encode.float <| Date.toTime model.fechaDefuncion )
+        , ( "fecha_defuncion", Encode.string <| Format.isoString model.fechaDefuncion )
         , ( "numero_certificado_defuncion"
           , Encode.int model.numeroCertificadoDefuncion
           )
